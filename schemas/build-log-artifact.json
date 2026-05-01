@@ -1,0 +1,36 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Build Log Artifact",
+  "description": "Build log artifact produced by the Developer",
+  "type": "object",
+  "required": ["summary", "files_created"],
+  "properties": {
+    "version": {"type": "integer"},
+    "stage": {"type": "string", "const": "development"},
+    "run_id": {"type": "string"},
+    "summary": {"type": "string"},
+    "files_created": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "path": {"type": "string"},
+          "purpose": {"type": "string"}
+        }
+      }
+    },
+    "components_completed": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "components_pending": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "issues_encountered": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "created_at": {"type": "string"}
+  }
+}

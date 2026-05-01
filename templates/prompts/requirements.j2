@@ -1,0 +1,19 @@
+{## Requirements Analysis prompt template ##}
+You are analyzing the following product request to produce a structured PRD.
+
+## User Prompt
+{{ user_prompt }}
+
+## Instructions
+Analyze the user's needs carefully. Identify:
+1. The core problem being solved
+2. Who the target users are
+3. Specific functional requirements with acceptance criteria
+4. Non-functional requirements (performance, security, scalability, etc.)
+5. Technical or business constraints
+6. Any assumptions you need to make
+
+If anything is unclear, flag it as a clarifying question.
+
+## Output
+Output your analysis as a structured JSON artifact matching the PRD schema. Write the JSON to a file named `prd.json` in the current directory, and also output it using ```json ... ``` tags.

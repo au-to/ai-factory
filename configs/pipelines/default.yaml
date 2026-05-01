@@ -1,0 +1,57 @@
+name: default
+description: "Default 5-stage pipeline: requirements -> design -> development -> testing -> deployment"
+version: "1.0"
+stages:
+  - name: requirements
+    description: "Analyze user requirements and produce a structured PRD"
+    agent: "Requirements Analyst"
+    input: []
+    output_artifact: requirements
+    gate: true
+    gate_label: "PRD Approval"
+    max_turns: 20
+    allowed_tools: ["Read", "Write", "Glob", "Grep"]
+
+  - name: design
+    description: "Design system architecture from the approved PRD"
+    agent: "System Architect"
+    input: ["requirements"]
+    output_artifact: design
+    gate: true
+    gate_label: "Technical Design Approval"
+    max_turns: 25
+    allowed_tools: ["Read", "Write", "Glob", "Grep"]
+
+  - name: development
+    description: "Generate the codebase from the technical design"
+    agent: "Developer"
+    input: ["design", "requirements"]
+    output_artifact: development
+    gate: false
+    max_turns: 50
+    allowed_tools: ["Read", "Write", "Glob", "Grep", "Bash(npm *)", "Bash(git *)", "Bash(mkdir *)"]
+    working_dir: "project"
+
+  - name: testing
+    description: "Generate and run tests, produce a test report"
+    agent: "QA Engineer"
+    input: ["development", "design", "requirements"]
+    output_artifact: testing
+    gate: true
+    gate_label: "Test Results Approval"
+    max_turns: 30
+    allowed_tools: ["Read", "Write", "Glob", "Grep", "Bash(npm *)", "Bash(npx *)", "Bash(pytest *)"]
+
+  - name: deployment
+    description: "Generate Docker configuration and deployment artifacts"
+    agent: "DevOps Engineer"
+    input: ["development", "design"]
+    output_artifact: deployment
+    gate: true
+    gate_label: "Deployment Approval"
+    max_turns: 20
+    allowed_tools: ["Read", "Write", "Glob", "Grep", "Bash(docker *)"]
+
+pre_run_checks:
+  - "Verify Claude Code CLI is installed: claude --version"
+  - "Verify target project directory is writable"

@@ -1,0 +1,45 @@
+{## Testing prompt template ##}
+You are testing the implemented application against the original requirements.
+
+## Context
+Run ID: {{ run_id }}
+Project directory: {{ workspace }}/project/
+
+{% if requirements %}
+## Requirements (PRD)
+The PRD with acceptance criteria is at: {{ requirements_path }}
+{% endif %}
+
+{% if design %}
+## Technical Spec
+The architecture is documented at: {{ design_path }}
+{% endif %}
+
+{% if development %}
+## Build Log
+The build log documenting what was implemented is at: {{ development_path }}
+{% endif %}
+
+## Instructions
+1. Read the PRD, tech spec, and build log
+2. Read the actual source code in the project/ directory
+3. Write unit tests for core business logic
+4. Write integration tests for API endpoints
+5. Install test dependencies and run all tests
+6. Check each acceptance criteria from the PRD
+7. Report honestly on pass/fail/skip rates
+
+{% if feedback %}
+## Feedback from Previous Attempt
+{{ feedback }}
+{% endif %}
+
+## Output
+Create a test-report.json file with:
+- Summary of testing effort
+- Total/passed/failed/skipped counts
+- Coverage percentage if available
+- Detailed test results with statuses
+- Any issues or bugs found
+
+Output the report as ```json ... ``` as well.

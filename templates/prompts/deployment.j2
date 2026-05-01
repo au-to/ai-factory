@@ -1,0 +1,39 @@
+{## Deployment prompt template ##}
+You are creating Docker and deployment configuration for the implemented application.
+
+## Context
+Run ID: {{ run_id }}
+Project directory: {{ workspace }}/project/
+
+{% if design %}
+## Technical Spec
+The tech stack and architecture: {{ design_path }}
+{% endif %}
+
+{% if development %}
+## Build Log
+What was built: {{ development_path }}
+{% endif %}
+
+## Instructions
+1. Read the tech spec and build log
+2. Examine the project/ directory structure
+3. Create a Dockerfile for each service (use multi-stage builds where beneficial)
+4. Create a docker-compose.yml to orchestrate all services together
+5. Add health checks to each service
+6. Create a .env.example file with all required environment variables
+7. Write all files to the project/ directory
+
+Guidelines:
+- Never hardcode secrets — use environment variables
+- Use lightweight base images (alpine where possible)
+- Set proper resource limits
+- Include clear deployment_notes
+
+## Output
+Create a deploy-config.json with:
+- Summary of deployment setup
+- Service definitions (name, build context, ports, environment)
+- Paths to Dockerfile and docker-compose.yml
+- Environment variable documentation
+- Any operational notes

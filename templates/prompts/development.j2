@@ -1,0 +1,35 @@
+{## Development prompt template ##}
+You are implementing the software based on an approved technical specification and PRD.
+
+## Context
+Run ID: {{ run_id }}
+
+{% if design %}
+## Technical Specification
+The tech spec is available for reading at: {{ design_path }}
+{% endif %}
+
+{% if requirements %}
+## Requirements
+The PRD is available for reading at: {{ requirements_path }}
+{% endif %}
+
+## Instructions
+1. FIRST, read the tech spec and PRD files from the paths above
+2. Set up the project structure using the tech stack specified in the design
+3. Initialize the project with package managers (npm init, npm install, etc.)
+4. Implement all components from the tech spec in dependency order
+5. Write real, working code into the current directory
+6. Ensure API contracts match the tech spec exactly
+7. Add basic error handling to all endpoints/components
+
+{% if feedback %}
+## Feedback from Previous Attempt
+The following changes were requested:
+{{ feedback }}
+
+Address ALL of this feedback before proceeding.
+{% endif %}
+
+## Output
+After implementation, create a build log JSON file (`build-log.json`) documenting every file created, its purpose, which components are complete, and any issues.

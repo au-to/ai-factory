@@ -1,0 +1,205 @@
+{% extends "base.html" %}
+{% block title %}{{ stage_label }} Artifact — Run {{ run.run_id }}{% endblock %}
+
+{% block content %}
+<div class="flex" style="justify-content:space-between;margin-bottom:20px;">
+    <div>
+        <h1>{{ stage_label }}</h1>
+        <span class="muted">Run: <code>{{ run.run_id }}</code> | Stage: <code>{{ stage_name }}</code></span>
+    </div>
+    <div class="flex">
+        <a href="/run/{{ run.run_id }}" class="btn btn-sm" style="background:#334155;">Back to Run</a>
+    </div>
+</div>
+
+<div class="card">
+{% if artifact %}
+    {% if stage_name == "requirements" %}
+        <h2>{{ artifact.get("title", "N/A") }}</h2>
+        <h3 class="muted">Problem Statement</h3>
+        <p>{{ artifact.get("problem_statement", "N/A") }}</p>
+
+        {% if artifact.get("target_users") %}
+        <h3>Target Users</h3>
+        <ul>
+            {% for user in artifact.target_users %}
+            <li>{{ user }}</li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+
+        <h3>Functional Requirements</h3>
+        <table>
+            <thead><tr><th>ID</th><th>Description</th><th>Priority</th><th>Acceptance Criteria</th></tr></thead>
+            <tbody>
+            {% for req in artifact.get("functional_requirements", []) %}
+            <tr>
+                <td><code>{{ req.id }}</code></td>
+                <td>{{ req.description }}</td>
+                <td><span class="badge" style="background:
+                    {% if req.priority == 'high' %}#7f1d1d;color:#fca5a5
+                    {% elif req.priority == 'medium' %}#78350f;color:#fcd34d
+                    {% else %}#1e3a5f;color:#93c5fd{% endif %}
+                ">{{ req.priority }}</span></td>
+                <td>
+                    <ul style="margin:0;padding-left:16px;">
+                    {% for ac in req.get("acceptance_criteria", []) %}
+                    <li style="font-size:13px;">{{ ac }}</li>
+                    {% endfor %}
+                    </ul>
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+
+        <h3>Non-Functional Requirements</h3>
+        <ul>
+            {% for nfr in artifact.get("non_functional_requirements", []) %}
+            <li><strong>{{ nfr.type }}</strong>: {{ nfr.description }} {% if nfr.threshold %}<span class="muted">({{ nfr.threshold }})</span>{% endif %}</li>
+            {% endfor %}
+        </ul>
+
+        {% if artifact.get("constraints") %}
+        <h3>Constraints</h3>
+        <ul>{% for c in artifact.constraints %}<li>{{ c }}</li>{% endfor %}</ul>
+        {% endif %}
+
+        {% if artifact.get("assumptions") %}
+        <h3>Assumptions</h3>
+        <ul>{% for a in artifact.assumptions %}<li>{{ a }}</li>{% endfor %}</ul>
+        {% endif %}
+
+    {% elif stage_name == "design" %}
+        <h2>Architecture Overview</h2>
+        <p>{{ artifact.get("overview", "N/A") }}</p>
+
+        <h3>Components</h3>
+        {% for comp in artifact.get("components", []) %}
+        <div class="card" style="margin:8px 0;">
+            <h4>{{ comp.name }}</h4>
+            <p>{{ comp.description }}</p>
+            {% if comp.get("responsibilities") %}
+            <p><strong>Responsibilities:</strong> {{ comp.responsibilities | join(", ") }}</p>
+            {% endif %}
+            {% if comp.get("dependencies") %}
+            <p><strong>Depends on:</strong> {{ comp.dependencies | join(", ") }}</p>
+            {% endif %}
+        </div>
+        {% endfor %}
+
+        <h3>Tech Stack</h3>
+        <table>
+            <thead><tr><th>Layer</th><th>Technology</th></tr></thead>
+            <tbody>
+            {% for k, v in artifact.get("tech_stack", {}).items() %}
+            <tr><td><strong>{{ k }}</strong></td><td>{{ v }}</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+
+        <h3>API Contracts</h3>
+        <table>
+            <thead><tr><th>Method</th><th>Path</th><th>Description</th></tr></thead>
+            <tbody>
+            {% for api in artifact.get("api_contracts", []) %}
+            <tr>
+                <td><code>{{ api.method }}</code></td>
+                <td><code>{{ api.path }}</code></td>
+                <td>{{ api.description }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+
+    {% elif stage_name == "development" %}
+        <h2>{{ artifact.get("summary", "N/A") }}</h2>
+
+        <h3>Files Created</h3>
+        <table>
+            <thead><tr><th>File</th><th>Purpose</th></tr></thead>
+            <tbody>
+            {% for f in artifact.get("files_created", []) %}
+            <tr><td><code>{{ f.path }}</code></td><td>{{ f.purpose }}</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+
+        <div class="grid grid-2">
+            <div>
+                <h3>Completed</h3>
+                <ul>
+                    {% for c in artifact.get("components_completed", []) %}
+                    <li style="color:#86efac;">{{ c }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            <div>
+                <h3>Pending</h3>
+                <ul>
+                    {% for p in artifact.get("components_pending", []) %}
+                    <li style="color:#fca5a5;">{{ p }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+
+    {% elif stage_name == "testing" %}
+        <h2>Test Results</h2>
+        <p>{{ artifact.get("summary", "N/A") }}</p>
+
+        <div class="grid grid-2" style="margin:16px 0;">
+            <div class="card" style="text-align:center;background:#16653422;border-color:#166534;">
+                <div style="font-size:32px;color:#22c55e;">{{ artifact.get("passed", 0) }}</div>
+                <div class="muted">Passed</div>
+            </div>
+            <div class="card" style="text-align:center;background:#7f1d1d22;border-color:#7f1d1d;">
+                <div style="font-size:32px;color:#ef4444;">{{ artifact.get("failed", 0) }}</div>
+                <div class="muted">Failed</div>
+            </div>
+        </div>
+
+        <table>
+            <thead><tr><th>Test</th><th>Status</th><th>Details</th></tr></thead>
+            <tbody>
+            {% for t in artifact.get("test_results", []) %}
+            <tr>
+                <td>{{ t.name }}</td>
+                <td>
+                    <span class="badge" style="background:
+                        {% if t.status == 'passed' %}#166534;color:#86efac
+                        {% elif t.status == 'failed' %}#7f1d1d;color:#fca5a5
+                        {% else %}#334155;color:#94a3b8{% endif %}
+                    ">{{ t.status }}</span>
+                </td>
+                <td class="muted">{{ t.get("details", "") }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+
+    {% elif stage_name == "deployment" %}
+        <h2>Deploy Config</h2>
+        <p>{{ artifact.get("summary", "N/A") }}</p>
+
+        <h3>Services</h3>
+        {% for svc in artifact.get("services", []) %}
+        <div class="card" style="margin:8px 0;">
+            <h4>{{ svc.name }}</h4>
+            <p><strong>Build Context:</strong> <code>{{ svc.get("build_context", "N/A") }}</code></p>
+            <p><strong>Ports:</strong> {{ svc.get("ports", []) | join(", ") }}</p>
+            {% if svc.get("environment") %}
+            <p><strong>Environment:</strong> {{ svc.environment | tojson }}</p>
+            {% endif %}
+        </div>
+        {% endfor %}
+
+    {% endif %}
+
+    <h3>Raw JSON</h3>
+    <pre>{{ artifact | tojson(indent=2) }}</pre>
+{% else %}
+    <p>No artifact data available.</p>
+{% endif %}
+</div>
+{% endblock %}

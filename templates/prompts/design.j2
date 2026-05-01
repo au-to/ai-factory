@@ -1,0 +1,24 @@
+{## System Design prompt template ##}
+You are designing the technical architecture for an approved PRD.
+
+## Requirements (PRD)
+{% if requirements %}
+The approved PRD is available at: {{ requirements_path }}
+{% endif %}
+
+<available_context>
+{{ requirements | tojson(indent=2) if requirements else 'No PRD available yet' }}
+</available_context>
+
+## Instructions
+Design a complete technical architecture:
+1. Break down into components with clear responsibilities
+2. Define data models and their relationships
+3. Design API contracts (REST endpoints or GraphQL queries)
+4. Choose the technology stack (prioritize boring, proven tech)
+5. Note any architectural trade-offs or risks
+
+Keep it simple. Don't over-engineer for v1.
+
+## Output
+Output the technical specification as structured JSON. Write it to a file named `tech-spec.json`, and also output it using ```json ... ``` tags.

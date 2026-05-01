@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% block title %}Run {{ run.run_id }} — AI Factory{% endblock %}
+
+{% block head %}
+<meta http-equiv="refresh" content="10">
+{% endblock %}
+
+{% block content %}
+<div class="flex" style="justify-content:space-between;">
+    <div>
+        <h1>Run <code>{{ run.run_id }}</code></h1>
+        <span class="badge" style="background:
+            {% if run.status == 'completed' %}#166534;color:#86efac
+            {% elif run.status == 'failed' %}#7f1d1d;color:#fca5a5
+            {% elif run.status == 'rejected' %}#7f1d1d;color:#fca5a5
+            {% elif run.status == 'running' %}#1e3a5f;color:#93c5fd
+            {% else %}#334155;color:#94a3b8{% endif %}
+        ">{{ run.status }}</span>
+        <span class="muted" style="margin-left:8px;">Created: {{ run.created_at[:19] }}</span>
+    </div>
+    <div>
+        <a href="/" class="btn btn-sm" style="background:#334155;">Back to Runs</a>
+    </div>
+</div>
+
+<!-- Pipeline Visualization -->
+<div class="pipeline">
+    {% for stage in stages %}
+    <div class="stage
+        {% if stage.status == 'in_progress' %}active
+        {% elif stage.status == 'completed' %}completed
+        {% elif stage.status == 'rejected' or stage.status == 'failed' %}rejected
+        {% endif %}
+    ">
+        <div class="icon" style="color:{{ stage.color }}">{{ stage.icon }}</div>
+        <div class="label">{{ stage.label }}</div>
+        <div class="status-text" style="color:{{ stage.color }}">{{ stage.status }}</div>
+    </div>
+    {% if not loop.last %}
+    <div class="arrow {% if stage.status == 'completed' %}done{% endif %}">→</div>
+    {% endif %}
+    {% endfor %}
+</div>
+
+<!-- Current Stage with Gate -->
+{% for stage in stages %}
+{% if stage.has_gate %}
+<div class="gate-panel">
+    <h3>Approval Required: {{ stage.label }}</h3>
+    {% if stage.has_artifact %}
+    <p class="muted">Artifact is ready for review.</p>
+    <div style="margin:12px 0;">
+        <a href="/run/{{ run.run_id }}/{{ stage.stage_name }}" class="btn btn-primary btn-sm">View Details</a>
+    </div>
+    {% else %}
+    <p class="muted">Waiting for artifact...</p>
+    {% endif %}
+    <div class="flex" style="margin-top:12px;">
+        <form method="POST" action="/approve/{{ run.run_id }}/{{ stage.stage_name }}">
+            <button type="submit" class="btn btn-success">Approve</button>
+        </form>
+        <form method="POST" action="/reject/{{ run.run_id }}/{{ stage.stage_name }}">
+            <input type="text" name="reason" placeholder="Rejection reason..." style="padding:6px;background:#1e293b;border:1px solid #334155;color:#fff;border-radius:6px;">
+            <button type="submit" class="btn btn-danger">Reject</button>
+        </form>
+        <form method="POST" action="/changes/{{ run.run_id }}/{{ stage.stage_name }}" class="flex" style="flex:1;">
+            <input type="text" name="feedback" placeholder="Requested changes..." style="flex:1;padding:6px;background:#1e293b;border:1px solid #334155;color:#fff;border-radius:6px;" required>
+            <button type="submit" class="btn btn-warning">Request Changes</button>
+        </form>
+    </div>
+</div>
+{% endif %}
+{% endfor %}
+
+<!-- Stage Details -->
+<h2>Stage Details</h2>
+<table>
+    <thead>
+        <tr><th>Stage</th><th>Status</th><th>Started</th><th>Completed</th><th>Artifact</th></tr>
+    </thead>
+    <tbody>
+    {% for stage in stages %}
+    <tr>
+        <td><strong>{{ stage.label }}</strong></td>
+        <td>
+            <span class="badge" style="background:{{ stage.color }}22;color:{{ stage.color }}">
+                {{ stage.status }}
+            </span>
+        </td>
+        <td class="muted">{{ stage.get('started_at', '-')[:19] if stage.get('started_at') else '-' }}</td>
+        <td class="muted">{{ stage.get('completed_at', '-')[:19] if stage.get('completed_at') else '-' }}</td>
+        <td>
+            {% if stage.has_artifact %}
+            <a href="/run/{{ run.run_id }}/{{ stage.stage_name }}" class="btn btn-primary btn-sm">View</a>
+            {% else %}
+            <span class="muted">—</span>
+            {% endif %}
+        </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+
+<!-- Gating History -->
+{% if stages | selectattr('gate_info') | list | length > 0 %}
+<h2>Gate History</h2>
+<table>
+    <thead><tr><th>Stage</th><th>Decision</th><th>Reviewed</th></tr></thead>
+    <tbody>
+    {% for stage in stages %}
+    {% if stage.gate_info %}
+    <tr>
+        <td>{{ stage.label }}</td>
+        <td>
+            <span class="badge" style="background:
+                {% if stage.gate_info.status == 'approved' %}#166534;color:#86efac
+                {% elif stage.gate_info.status == 'rejected' %}#7f1d1d;color:#fca5a5
+                {% else %}#334155;color:#94a3b8{% endif %}
+            ">{{ stage.gate_info.status }}</span>
+        </td>
+        <td class="muted">{{ stage.gate_info.get('reviewed_at', '-')[:19] }}</td>
+    </tr>
+    {% endif %}
+    {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,58 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Tech Spec Artifact",
+  "description": "Technical specification artifact produced by the System Architect",
+  "type": "object",
+  "required": ["overview", "components", "tech_stack"],
+  "properties": {
+    "version": {"type": "integer"},
+    "stage": {"type": "string", "const": "design"},
+    "run_id": {"type": "string"},
+    "overview": {"type": "string"},
+    "components": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "description"],
+        "properties": {
+          "name": {"type": "string"},
+          "description": {"type": "string"},
+          "responsibilities": {
+            "type": "array",
+            "items": {"type": "string"}
+          },
+          "dependencies": {
+            "type": "array",
+            "items": {"type": "string"}
+          }
+        }
+      }
+    },
+    "data_models": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {"type": "string"},
+          "fields": {"type": "object"}
+        }
+      }
+    },
+    "api_contracts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "method": {"type": "string"},
+          "path": {"type": "string"},
+          "description": {"type": "string"},
+          "request_body": {"type": "string"},
+          "response_body": {"type": "string"}
+        }
+      }
+    },
+    "tech_stack": {"type": "object"},
+    "architecture_notes": {"type": "string"},
+    "created_at": {"type": "string"}
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Deploy Config Artifact",
+  "description": "Deployment configuration artifact produced by the DevOps Engineer",
+  "type": "object",
+  "required": ["summary", "services"],
+  "properties": {
+    "version": {"type": "integer"},
+    "stage": {"type": "string", "const": "deployment"},
+    "run_id": {"type": "string"},
+    "summary": {"type": "string"},
+    "services": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {"type": "string"},
+          "image": {"type": "string"},
+          "build_context": {"type": "string"},
+          "ports": {
+            "type": "array",
+            "items": {"type": "string"}
+          },
+          "environment": {"type": "object"}
+        }
+      }
+    },
+    "dockerfile_path": {"type": "string"},
+    "docker_compose_path": {"type": "string"},
+    "environment_variables": {"type": "object"},
+    "deployment_notes": {"type": "string"},
+    "created_at": {"type": "string"}
+  }
+}
