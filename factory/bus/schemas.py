@@ -68,7 +68,7 @@ class TechSpecArtifact(BaseModel):
     components: list[Component] = Field(default_factory=list)
     data_models: list[DataModel] = Field(default_factory=list)
     api_contracts: list[APIContract] = Field(default_factory=list)
-    tech_stack: dict[str, str] = Field(default_factory=dict)
+    tech_stack: dict = Field(default_factory=dict)
     architecture_notes: str = ""
     created_at: str = Field(default_factory=lambda: datetime.now().isoformat())
 
@@ -107,7 +107,7 @@ class QaReportArtifact(BaseModel):
     skipped: int = 0
     coverage_percent: Optional[float] = None
     test_results: list[TestResult] = Field(default_factory=list)
-    issues_found: list[str] = Field(default_factory=list)
+    issues_found: list = Field(default_factory=list)  # list[str] or list[dict]
     created_at: str = Field(default_factory=lambda: datetime.now().isoformat())
 
 
@@ -127,7 +127,7 @@ class DeployConfigArtifact(BaseModel):
     services: list[ServiceConfig] = Field(default_factory=list)
     dockerfile_path: Optional[str] = None
     docker_compose_path: Optional[str] = None
-    environment_variables: dict[str, str] = Field(default_factory=dict)
+    environment_variables: dict = Field(default_factory=dict)
     deployment_notes: str = ""
     created_at: str = Field(default_factory=lambda: datetime.now().isoformat())
 

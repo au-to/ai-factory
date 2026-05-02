@@ -73,16 +73,37 @@ class StageRunner:
                                      result: ClaudeResult) -> Optional[int]:
         """Extract structured JSON from Claude's output and store as artifact.
 
-        With --output-format json, stdout contains a clean JSON result.
-        Falls back to parsing markdown code blocks if direct JSON parsing fails.
+        Tries in order:
+        1. Parse JSON from stdout (markdown code blocks or raw JSON)
+        2. Look for JSON files Claude wrote to the artifacts directory
         """
         output_data = self._parse_output(result.stdout)
+
+        # Fallback: read from JSON files Claude wrote directly
+        if not output_data:
+            output_data = self._read_claude_json_files(stage, run_id)
 
         if output_data:
             try:
                 return self.bus.write_raw(stage.output_artifact, output_data, run_id)
             except Exception:
                 return None
+        return None
+
+    def _read_claude_json_files(self, stage: StageConfig, run_id: str) -> Optional[dict]:
+        """Look for JSON files that Claude wrote directly to the artifacts directory."""
+        import json as _json
+        artifacts_dir = self.bus.artifacts_dir(run_id)
+        if not artifacts_dir.exists():
+            return None
+        for candidate in artifacts_dir.glob("*.json"):
+            if candidate.name == "manifest.json":
+                continue
+            try:
+                with open(candidate) as f:
+                    return _json.load(f)
+            except Exception:
+                pass
         return None
 
     @staticmethod
@@ -121,17 +142,59 @@ class StageRunner:
         # JSON code block
         m = re.search(r'```json\s*([\s\S]*?)```', text)
         if m:
-            try:
-                return json.loads(m.group(1))
-            except json.JSONDecodeError:
-                pass
+            result = StageRunner._try_parse_json(m.group(1))
+            if result:
+                return result
 
         # Raw JSON object (greedy match for the outermost object)
         m = re.search(r'\{[\s\S]*\}', text)
         if m:
+            result = StageRunner._try_parse_json(m.group(0))
+            if result:
+                return result
+
+        return None
+
+    @staticmethod
+    def _try_parse_json(text: str) -> Optional[dict]:
+        """Try to parse JSON text, applying repairs for common LLM formatting errors."""
+        try:
+            return json.loads(text)
+        except json.JSONDecodeError:
+            pass
+
+        # Repair: escape unescaped control characters inside JSON strings
+        repaired = StageRunner._sanitize_json_strings(text)
+        if repaired != text:
             try:
-                return json.loads(m.group(0))
+                return json.loads(repaired)
             except json.JSONDecodeError:
                 pass
 
         return None
+
+    @staticmethod
+    def _sanitize_json_strings(text: str) -> str:
+        """Escape literal newlines, tabs, and carriage returns inside JSON strings."""
+        result = []
+        in_string = False
+        escape = False
+        for ch in text:
+            if escape:
+                escape = False
+                result.append(ch)
+            elif ch == '\\':
+                escape = True
+                result.append(ch)
+            elif ch == '"':
+                in_string = not in_string
+                result.append(ch)
+            elif ch == '\n' and in_string:
+                result.append('\\n')
+            elif ch == '\r' and in_string:
+                result.append('\\r')
+            elif ch == '\t' and in_string:
+                result.append('\\t')
+            else:
+                result.append(ch)
+        return ''.join(result)

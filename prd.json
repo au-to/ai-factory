@@ -1,182 +1,206 @@
 {
-  "title": "TODO Application - React Frontend + Express Backend",
-  "problem_statement": "Users need a simple, reliable way to capture, organize, and track daily tasks. Without a dedicated task management tool, tasks get lost in chat messages, sticky notes, or mental memory, leading to missed deadlines and reduced productivity. This application provides a focused TODO list interface where users can quickly add tasks, mark them as complete, and remove them — keeping the workflow as frictionless as possible.",
+  "title": "Simple TODO Application — React Frontend + Express Backend + SQLite",
+  "problem_statement": "Users need a simple, reliable way to capture, organize, and track daily tasks. Without a dedicated task management tool, tasks get lost in chat messages, sticky notes, or mental memory, leading to missed deadlines and reduced productivity. This application provides a focused, local-first TODO list where users can quickly add, edit, complete, and remove tasks — with all data persisted durably in SQLite, requiring no external database server or cloud dependency.",
   "target_users": [
     "Individual users managing personal daily tasks",
     "Professionals tracking work items and action items",
     "Students organizing assignments and study tasks",
-    "Anyone needing a lightweight, fast task tracking tool"
+    "Developers who want a zero-dependency local task tracker"
   ],
   "functional_requirements": [
     {
       "id": "FR-001",
-      "description": "Users can view a list of all TODO items",
+      "description": "View the full list of TODO items on page load",
       "priority": "high",
       "acceptance_criteria": [
-        "The application loads and displays all existing TODO items from the backend on page load",
-        "Each item shows its title text and completion status (checkbox or strikethrough)",
-        "An empty state message is shown when no tasks exist (e.g., 'No tasks yet. Add one above!')",
-        "The list updates automatically after any add/delete/toggle operation"
+        "On page load, the frontend fetches GET /api/tasks and renders all tasks",
+        "Each task displays its title, description (if present), completion status, and creation date",
+        "An empty-state message is shown when no tasks exist (e.g., 'No tasks yet — create one above!')",
+        "The list re-renders automatically after any add, edit, toggle, or delete operation"
       ]
     },
     {
       "id": "FR-002",
-      "description": "Users can add a new TODO item with a title",
+      "description": "Create a new TODO item with a required title and optional description",
       "priority": "high",
       "acceptance_criteria": [
-        "An input field and 'Add' button are present above or inline with the task list",
-        "User can type a task title and submit via button click or Enter key press",
-        "The new task appears immediately in the list after successful creation",
-        "Empty or whitespace-only titles are rejected with a validation message",
-        "The input field is cleared after successful submission",
-        "A loading or disabled state is shown on the submit button while the request is in flight to prevent duplicate submissions"
+        "An input form provides fields for title (required) and description (optional)",
+        "Submitting via button click or Enter key sends POST /api/tasks with the task payload",
+        "The new task appears in the list immediately on success",
+        "Empty or whitespace-only titles are rejected with a client-side validation message",
+        "The input field is cleared after successful creation",
+        "Duplicate submissions are prevented (submit button disabled while request is in-flight)"
       ]
     },
     {
       "id": "FR-003",
-      "description": "Users can mark a TODO item as completed or uncompleted",
+      "description": "Toggle a task's completion status (mark done / mark undone)",
       "priority": "high",
       "acceptance_criteria": [
-        "Each task has a checkbox or toggle that indicates its completion status",
-        "Clicking the toggle flips the task's completion state (completed ↔ uncompleted)",
-        "Completed tasks are visually distinguished (e.g., strikethrough text, grayed out, or moved to a separate section)",
-        "The state change persists after page refresh",
-        "Toggling completion on an already-completed task marks it as incomplete again"
+        "Each task row includes a checkbox or toggle for completion status",
+        "Clicking the toggle sends PUT /api/tasks/:id with the flipped completed boolean",
+        "The UI updates optimistically and reverts if the server request fails",
+        "Completed tasks are visually distinct (strikethrough title, muted text color)",
+        "Toggling a completed task back to incomplete restores its normal visual state"
       ]
     },
     {
       "id": "FR-004",
-      "description": "Users can delete a TODO item",
+      "description": "Delete a TODO item with a confirmation step",
       "priority": "high",
       "acceptance_criteria": [
-        "Each task has a delete button or icon (e.g., trash can or '×')",
-        "Clicking delete removes the task from the list immediately",
-        "The deletion persists after page refresh",
-        "A confirmation step is shown before deletion to prevent accidental removal (e.g., confirm dialog or 'Are you sure?' prompt)"
+        "Each task row includes a delete action (trash icon or button)",
+        "Clicking delete triggers a confirmation prompt before proceeding",
+        "On confirmation, DELETE /api/tasks/:id is called and the task is removed from the list",
+        "If the server request fails, the task remains visible and an error is shown",
+        "Canceling the confirmation leaves the task untouched"
       ]
     },
     {
       "id": "FR-005",
-      "description": "Users can edit the title of an existing TODO item",
+      "description": "Edit an existing task's title and description inline",
       "priority": "medium",
       "acceptance_criteria": [
-        "Users can click on a task title to enter inline edit mode",
-        "The title becomes an editable text field",
-        "Pressing Enter or clicking away saves the new title",
-        "Pressing Escape cancels the edit and restores the original title",
-        "Empty or whitespace-only edits are rejected"
+        "Clicking a task title or an edit button enters inline edit mode",
+        "In edit mode, title and description become editable text inputs",
+        "Pressing Enter or clicking Save sends PUT /api/tasks/:id with the updated fields",
+        "Pressing Escape or clicking Cancel exits edit mode and restores original values",
+        "Saving an empty title is rejected with validation"
       ]
     },
     {
       "id": "FR-006",
-      "description": "Users can filter tasks by completion status",
-      "priority": "low",
+      "description": "Filter tasks by completion status (All / Active / Completed)",
+      "priority": "medium",
       "acceptance_criteria": [
-        "Filter buttons/tabs allow viewing: All, Active (incomplete), and Completed tasks",
+        "Filter tabs or buttons offer three views: All, Active (incomplete), Completed",
         "The active filter is visually highlighted",
-        "Filtering is performed client-side for responsiveness",
-        "The filter state is preserved when tasks are added/removed/toggled"
+        "Filtering can be done client-side from already-fetched data for responsiveness",
+        "The filter state persists across operations (newly added tasks appear under the correct filter)"
       ]
     },
     {
       "id": "FR-007",
-      "description": "The application handles API errors gracefully",
+      "description": "RESTful API provides task CRUD endpoints backed by SQLite",
       "priority": "high",
       "acceptance_criteria": [
-        "Network errors (timeout, server down) display a user-friendly error message",
-        "Failed operations (add/delete/toggle) show an error notification without crashing the app",
-        "The UI rolls back optimistic updates if the server request fails",
-        "A 'Retry' option is offered for failed operations where applicable"
+        "GET /api/tasks — returns JSON array of all tasks, ordered by created_at DESC",
+        "GET /api/tasks?status=active|completed — returns filtered tasks",
+        "GET /api/tasks/:id — returns a single task object or 404",
+        "POST /api/tasks — accepts { title: string, description?: string }, returns 201 with created task",
+        "PUT /api/tasks/:id — accepts partial update { title?, description?, completed? }, returns updated task or 404",
+        "DELETE /api/tasks/:id — deletes task, returns 204 on success or 404",
+        "All endpoints validate input and return consistent JSON error responses: { error: string } with appropriate HTTP status codes (400, 404, 500)"
+      ]
+    },
+    {
+      "id": "FR-008",
+      "description": "The application handles API and network errors gracefully",
+      "priority": "high",
+      "acceptance_criteria": [
+        "Network errors (timeout, server unreachable) display a user-friendly error message",
+        "Failed mutations show an error toast/notification without crashing the app",
+        "Optimistic UI updates are rolled back if the server request fails",
+        "A retry mechanism or manual retry button is offered for failed fetch operations"
       ]
     }
   ],
   "non_functional_requirements": [
     {
       "type": "performance",
-      "description": "Initial page load and task list fetch should complete within 1 second under normal network conditions",
-      "threshold": "< 1000ms for initial load"
+      "description": "API response time for single-task CRUD operations",
+      "threshold": "p95 < 50ms for local SQLite reads; p95 < 100ms for writes"
     },
     {
       "type": "performance",
-      "description": "Task operations (add, toggle, delete) should feel instant via optimistic UI updates, with server sync completing within 500ms",
-      "threshold": "< 500ms server response time for CRUD operations"
+      "description": "Frontend initial page load and first paint",
+      "threshold": "First Contentful Paint < 1.5s; task list visible < 2s on localhost"
     },
     {
-      "type": "usability",
-      "description": "The UI must be responsive and usable on mobile devices (320px width) through desktop (1920px+)",
-      "threshold": "Responsive layout breakpoints at 320px, 768px, 1024px minimum"
-    },
-    {
-      "type": "usability",
-      "description": "The application must be keyboard-accessible: all operations (add, toggle, delete, edit) should be achievable via keyboard alone",
-      "threshold": "Full keyboard navigation support"
-    },
-    {
-      "type": "usability",
-      "description": "The interface should follow accessibility best practices (WCAG 2.1 Level AA minimum)",
-      "threshold": "WCAG 2.1 AA compliance — includes proper ARIA labels, focus management, color contrast ≥ 4.5:1"
+      "type": "performance",
+      "description": "UI responsiveness for task list rendering",
+      "threshold": "List of 1,000 tasks renders without visible jank (< 16ms frame budget)"
     },
     {
       "type": "reliability",
-      "description": "Data must persist across application restarts and page refreshes",
-      "threshold": "Zero data loss on refresh or server restart (data stored durably in database/file)"
+      "description": "Data durability — tasks must survive server restart and page refresh",
+      "threshold": "Zero data loss on clean shutdown; SQLite WAL journal mode enabled for crash resilience"
+    },
+    {
+      "type": "usability",
+      "description": "Responsive layout across device sizes",
+      "threshold": "Usable at viewport widths from 320px (mobile) to 1920px+ (desktop)"
+    },
+    {
+      "type": "usability",
+      "description": "Keyboard accessibility for all core operations",
+      "threshold": "Add, toggle, edit, and delete operations fully operable via keyboard alone (Tab, Enter, Escape, Space)"
+    },
+    {
+      "type": "usability",
+      "description": "Accessibility compliance",
+      "threshold": "WCAG 2.1 Level AA — proper ARIA labels, focus management, color contrast ratio ≥ 4.5:1 for text"
     },
     {
       "type": "security",
-      "description": "API endpoints must validate and sanitize all input to prevent injection attacks (XSS, NoSQL injection if using MongoDB)",
-      "threshold": "All inputs sanitized; Content-Security-Policy headers set"
+      "description": "Input validation and SQL injection prevention",
+      "threshold": "All API inputs validated; parameterized SQL queries only (no string concatenation); XSS prevention via React's default escaping"
     },
     {
       "type": "security",
-      "description": "If deployed, the API should enforce HTTPS and set secure HTTP headers",
-      "threshold": "HTTPS required; Helmet or equivalent middleware configured"
+      "description": "HTTP security headers on the Express server",
+      "threshold": "Helmet middleware or equivalent configured with appropriate CSP, X-Content-Type-Options, X-Frame-Options headers"
     },
     {
       "type": "scalability",
-      "description": "The application should handle up to 1000 tasks per user without noticeable UI degradation",
-      "threshold": "Smooth operation with 1000+ tasks (use of virtualized lists if needed)"
+      "description": "Task volume the application can handle without degradation",
+      "threshold": "10,000 tasks stored in SQLite; list rendering performs acceptably (consider virtualization above 1,000 visible rows)"
     }
   ],
   "constraints": [
     "Frontend must be built with React (JavaScript or TypeScript)",
-    "Backend must be built with Express.js (Node.js)",
-    "The frontend and backend communicate via a RESTful JSON API",
-    "The application must work in modern browsers (Chrome, Firefox, Safari, Edge — latest 2 versions)",
-    "No mandatory user authentication (single-user or anonymous usage assumed unless specified otherwise)",
-    "The solution should be runnable locally with minimal setup (e.g., npm install && npm start for each)"
+    "Backend must be built with Node.js and Express.js",
+    "Database must be SQLite, using a file-based database (e.g., better-sqlite3 or sqlite3 npm package)",
+    "The frontend and backend communicate exclusively via RESTful JSON API",
+    "The full stack must run locally — no cloud services, no external database server",
+    "No authentication or multi-user support in the initial version (single-user local app)",
+    "Must work in modern browsers: Chrome, Firefox, Safari, Edge (latest 2 versions)",
+    "Setup must be minimal: clone repo, install dependencies, run start command"
   ],
   "assumptions": [
-    "The application is single-user or session-based; no multi-user support or authentication is required in the initial version",
-    "Task data is persisted in a local database (SQLite or JSON file) or in-memory store — not a cloud database",
-    "Each task has at minimum: a unique ID, a title string, a completion boolean, and a creation timestamp",
-    "The task title is plain text only (no Markdown, rich text, or attachments)",
-    "No real-time collaboration or WebSocket sync is needed",
-    "The application is not intended for production deployment as-is; it's a local development/learning project",
-    "Node.js and npm are pre-installed on the user's machine"
+    "The application is single-user; no authentication, authorization, or user accounts",
+    "SQLite database file is stored locally (e.g., ./data/todos.db in the project directory)",
+    "SQLite is configured with WAL journal mode for better concurrent read performance",
+    "Task data model: id (INTEGER PRIMARY KEY AUTOINCREMENT), title (TEXT NOT NULL), description (TEXT, nullable), completed (INTEGER/BOOLEAN DEFAULT 0), created_at (TEXT/DATETIME DEFAULT CURRENT_TIMESTAMP), updated_at (TEXT/DATETIME DEFAULT CURRENT_TIMESTAMP)",
+    "The backend runs on port 3001; the React dev server on port 3000 with a proxy to 3001 for /api routes",
+    "Node.js (v18+) and npm are pre-installed on the user's machine",
+    "Task titles are plain text — no Markdown rendering, rich text, or file attachments",
+    "No real-time sync, WebSockets, or collaboration features are needed",
+    "TypeScript is optional; if used, it applies to both frontend and backend consistently"
   ],
   "clarifying_questions": [
     {
-      "question": "Should the application support multiple users with authentication (login/signup), or is this a single-user application without login?",
+      "question": "Should tasks support additional fields beyond title, description, and completion status — such as due date, priority level (high/medium/low), or tags/categories?",
       "answer": null
     },
     {
-      "question": "What should be used for data persistence — an in-memory store (data lost on server restart), a JSON file, SQLite, or a full database like PostgreSQL/MongoDB?",
+      "question": "Should tasks be reorderable via drag-and-drop, or is sorting by creation date (newest first) sufficient?",
       "answer": null
     },
     {
-      "question": "Beyond marking tasks as complete, should users be able to edit a task's title, add descriptions, set due dates, assign priorities, or organize tasks into categories/lists?",
+      "question": "Is there a need for data export/import functionality (e.g., export all tasks as JSON or CSV)?",
       "answer": null
     },
     {
-      "question": "Should there be any filtering, sorting, or search capabilities (e.g., filter by 'completed', 'active', sort by date created)?",
+      "question": "Should the app support dark mode / theme toggling in the initial release?",
       "answer": null
     },
     {
-      "question": "What is the deployment target — local-only development, cloud hosting (Vercel/Railway/Heroku), or containerized deployment?",
+      "question": "Is there a preferred UI styling approach — plain CSS, CSS Modules, Tailwind CSS, or a component library like Material UI?",
       "answer": null
     },
     {
-      "question": "Is TypeScript preferred over plain JavaScript for either the frontend or backend?",
+      "question": "Should the app be containerized (Docker) or packaged (Electron) for distribution, or is running via npm scripts sufficient?",
       "answer": null
     }
   ]
