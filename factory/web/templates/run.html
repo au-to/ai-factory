@@ -101,6 +101,76 @@
     </tbody>
 </table>
 
+<!-- Preview -->
+{% if deployment_done %}
+<div id="preview-section" class="preview-card {% if preview_running %}running{% endif %}">
+    <div style="display:flex;align-items:center;justify-content:space-between;">
+        <h3 style="margin:0;display:flex;align-items:center;">
+            <span id="preview-dot" class="preview-indicator {% if preview_running %}live{% endif %}"></span>
+            应用预览
+        </h3>
+        <div id="preview-actions">
+            {% if preview_running %}
+            <div class="preview-urls" id="preview-urls">
+                <a href="http://localhost:3000" target="_blank">前端 →</a>
+                <a href="http://localhost:3001/api/health" target="_blank">后端 API →</a>
+            </div>
+            <button class="btn btn-danger btn-sm" onclick="stopPreview()">停止预览</button>
+            {% else %}
+            <button class="btn btn-success btn-sm" onclick="startPreview()">启动预览</button>
+            {% endif %}
+        </div>
+    </div>
+    <p class="muted" style="margin-top:8px;" id="preview-msg">
+        {% if preview_running %}
+        npm run dev 正在运行，需要几秒钟启动完成。
+        {% else %}
+        启动后将在此处显示前端和后端访问链接。
+        {% endif %}
+    </p>
+</div>
+<script>
+const runId = "{{ run.run_id }}";
+async function startPreview() {
+    const btn = document.querySelector('#preview-actions');
+    btn.innerHTML = '<span class="muted">启动中...</span>';
+    try {
+        const r = await fetch('/preview/' + runId + '/start', {method:'POST'});
+        const data = await r.json();
+        if (data.running) {
+            updatePreviewUI(data);
+        }
+    } catch(e) {
+        btn.innerHTML = '<button class="btn btn-success btn-sm" onclick="startPreview()">启动预览</button>';
+    }
+}
+async function stopPreview() {
+    const btn = document.querySelector('#preview-actions');
+    btn.innerHTML = '<span class="muted">停止中...</span>';
+    try {
+        await fetch('/preview/' + runId + '/stop', {method:'POST'});
+        document.querySelector('#preview-dot').classList.remove('live');
+        document.querySelector('.preview-card').classList.remove('running');
+        document.querySelector('#preview-msg').textContent = '预览已停止。';
+        btn.innerHTML = '<button class="btn btn-success btn-sm" onclick="startPreview()">启动预览</button>';
+    } catch(e) {
+        btn.innerHTML = '<button class="btn btn-danger btn-sm" onclick="stopPreview()">停止预览</button>';
+    }
+}
+function updatePreviewUI(data) {
+    document.querySelector('#preview-dot').classList.add('live');
+    document.querySelector('.preview-card').classList.add('running');
+    document.querySelector('#preview-msg').textContent = 'npm run dev 正在运行，需要几秒钟启动完成。';
+    document.querySelector('#preview-actions').innerHTML = `
+        <div class="preview-urls">
+            <a href="${data.frontend_url}" target="_blank">前端 →</a>
+            <a href="${data.backend_url}" target="_blank">后端 API →</a>
+        </div>
+        <button class="btn btn-danger btn-sm" onclick="stopPreview()">停止预览</button>`;
+}
+</script>
+{% endif %}
+
 <!-- Gating History -->
 {% if stages | selectattr('gate_info') | list | length > 0 %}
 <h2>Gate History</h2>

@@ -11,12 +11,16 @@ Routes:
 
 from __future__ import annotations
 
+import json
+import os
+import signal
+import subprocess
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, Form, Query, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from jinja2 import Environment, FileSystemLoader
 
 from factory.pipeline.engine import PipelineEngine
@@ -65,6 +69,83 @@ def create_app(workspace: str = "workspace") -> FastAPI:
         "failed": "#ef4444",
     }
 
+    # --- Preview Manager ---
+    project_dir = Path(workspace).resolve() / "project"
+
+    class PreviewManager:
+        def __init__(self):
+            self._processes: dict[str, subprocess.Popen] = {}
+
+        def _read_ports(self) -> tuple[int, int]:
+            config_path = project_dir / "deploy-config.json"
+            if config_path.exists():
+                try:
+                    with open(config_path) as f:
+                        cfg = json.load(f)
+                    services = cfg.get("services", [])
+                    fe_port = 3000
+                    be_port = 3001
+                    for svc in services:
+                        ports = svc.get("ports", [])
+                        for p in ports:
+                            if isinstance(p, str):
+                                p = p.split(":")[0] if ":" in p else p
+                                try:
+                                    p = int(p)
+                                except ValueError:
+                                    continue
+                            if svc.get("name") == "frontend":
+                                fe_port = p
+                            elif svc.get("name") == "backend":
+                                be_port = p
+                    return fe_port, be_port
+                except Exception:
+                    pass
+            return 3000, 3001
+
+        def start(self, run_id: str) -> dict:
+            if run_id in self._processes:
+                proc = self._processes[run_id]
+                if proc.poll() is None:
+                    fe_port, be_port = self._read_ports()
+                    return {"running": True, "frontend_url": f"http://localhost:{fe_port}",
+                            "backend_url": f"http://localhost:{be_port}"}
+                del self._processes[run_id]
+
+            if not project_dir.exists():
+                return {"running": False, "error": "Project directory not found"}
+
+            proc = subprocess.Popen(
+                ["npm", "run", "dev"],
+                cwd=str(project_dir),
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                start_new_session=True,
+            )
+            self._processes[run_id] = proc
+            fe_port, be_port = self._read_ports()
+            return {"running": True, "frontend_url": f"http://localhost:{fe_port}",
+                    "backend_url": f"http://localhost:{be_port}"}
+
+        def stop(self, run_id: str) -> dict:
+            proc = self._processes.pop(run_id, None)
+            if proc:
+                try:
+                    os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
+                except Exception:
+                    proc.terminate()
+            return {"running": False}
+
+        def is_running(self, run_id: str) -> bool:
+            proc = self._processes.get(run_id)
+            if proc and proc.poll() is None:
+                return True
+            if proc:
+                del self._processes[run_id]
+            return False
+
+    preview_mgr = PreviewManager()
+
     # --- Routes ---
 
     @app.get("/", response_class=HTMLResponse)
@@ -107,12 +188,19 @@ def create_app(workspace: str = "workspace") -> FastAPI:
             s["has_artifact"] = stage_name in artifacts
             enhanced_stages.append(s)
 
+        deployment_done = any(
+            s["stage_name"] == "deployment" and s["status"] == "awaiting_approval"
+            for s in status["stages"]
+        ) or status["run"]["status"] == "completed"
+
         return HTMLResponse(_render("run.html", {
             "request": request,
             "run": status["run"],
             "stages": enhanced_stages,
             "artifacts": artifacts,
             "stage_labels": STAGE_LABELS,
+            "preview_running": preview_mgr.is_running(run_id),
+            "deployment_done": deployment_done,
         }))
 
     @app.get("/run/{run_id}/{stage_name}", response_class=HTMLResponse)
@@ -164,6 +252,26 @@ def create_app(workspace: str = "workspace") -> FastAPI:
         )
         t.start()
         return RedirectResponse(url=f"/run/{run_id}", status_code=303)
+
+    @app.post("/preview/{run_id}/start")
+    async def preview_start(run_id: str):
+        result = preview_mgr.start(run_id)
+        return JSONResponse(result)
+
+    @app.post("/preview/{run_id}/stop")
+    async def preview_stop(run_id: str):
+        result = preview_mgr.stop(run_id)
+        return JSONResponse(result)
+
+    @app.get("/preview/{run_id}")
+    async def preview_status(run_id: str):
+        running = preview_mgr.is_running(run_id)
+        fe_port, be_port = preview_mgr._read_ports()
+        return JSONResponse({
+            "running": running,
+            "frontend_url": f"http://localhost:{fe_port}",
+            "backend_url": f"http://localhost:{be_port}",
+        })
 
     return app
 
