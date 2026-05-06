@@ -1,148 +1,67 @@
 {
-  "title": "Simple Countdown Timer Webpage",
-  "problem_statement": "Users need a simple, distraction-free countdown timer that works instantly in a web browser — no installation, no login, no setup. Common use cases include time-boxing tasks, managing presentations, timing workouts, cooking, or any activity where a quick visual countdown helps maintain focus and urgency.",
+  "title": "Hello World Python Script",
+  "problem_statement": "The user needs a minimal Python script that prints 'Hello World' to standard output, serving as a basic program entry point or a smoke test to verify the Python runtime environment.",
   "target_users": [
-    "General productivity users (Pomodoro technique, time-boxing)",
-    "Presenters and public speakers (timing talks and presentations)",
-    "Students (exam prep, timed study sessions)",
-    "Home users (cooking, exercise, short-duration tasks)"
+    "Developers learning Python",
+    "System administrators verifying Python installation",
+    "Anyone needing a minimal executable Python template"
   ],
   "functional_requirements": [
     {
       "id": "FR-001",
-      "description": "Display the remaining countdown time in large, clearly readable format (HH:MM:SS or MM:SS depending on duration).",
+      "description": "Create a Python source file named hello.py",
       "priority": "high",
       "acceptance_criteria": [
-        "Time is displayed in the center of the page with large font size (minimum 72px on desktop).",
-        "Format auto-adapts: durations under 1 hour show MM:SS; durations >= 1 hour show HH:MM:SS.",
-        "Leading zeros are always shown (e.g., 05:03, not 5:3).",
-        "The display updates every second."
+        "A file named hello.py exists in the expected directory",
+        "The file is a plain text file with valid Python syntax",
+        "The file contains only the expected print statement and no extraneous code"
       ]
     },
     {
       "id": "FR-002",
-      "description": "Allow the user to set a custom countdown duration via manual input.",
+      "description": "Print the exact string 'Hello World' to standard output when executed",
       "priority": "high",
       "acceptance_criteria": [
-        "User can enter hours, minutes, and seconds via separate input fields or a combined time picker.",
-        "Input fields default to 00:05:00 (5 minutes).",
-        "Invalid inputs (negative values, non-numeric) are rejected with inline validation feedback.",
-        "Maximum settable duration is 99:59:59."
-      ]
-    },
-    {
-      "id": "FR-003",
-      "description": "Provide quick-select preset buttons for common durations.",
-      "priority": "medium",
-      "acceptance_criteria": [
-        "Preset buttons exist for: 1 min, 3 min, 5 min, 10 min, 15 min, 30 min, 60 min.",
-        "Clicking a preset immediately updates the timer display to that duration.",
-        "If a timer is running, clicking a preset resets and sets the new duration (timer stops)."
-      ]
-    },
-    {
-      "id": "FR-004",
-      "description": "Provide Start, Pause, and Reset buttons to control the countdown.",
-      "priority": "high",
-      "acceptance_criteria": [
-        "Start button begins the countdown from the currently set time.",
-        "Pause button halts the countdown while preserving remaining time; button label changes to 'Resume' while paused.",
-        "Reset button stops the countdown and restores the display to the originally set time.",
-        "Start button is disabled (or changes to Pause) while counting down.",
-        "Pause/Resume button is disabled when the timer is not running.",
-        "Reset button is always enabled when the display differs from the originally set time."
-      ]
-    },
-    {
-      "id": "FR-005",
-      "description": "Alert the user when the countdown reaches zero via visual change and an optional audio notification.",
-      "priority": "high",
-      "acceptance_criteria": [
-        "When timer reaches 00:00, the display flashes or changes color (e.g., red background pulse).",
-        "A browser notification API alert is triggered (with user permission).",
-        "An audio beep or alarm sound plays (at least 3 beeps or 3 seconds of sound).",
-        "The page title updates to 'TIME'S UP!' or similar indicator so users on other tabs can see it."
-      ]
-    },
-    {
-      "id": "FR-006",
-      "description": "Ensure the countdown remains accurate even when the browser tab is in the background.",
-      "priority": "high",
-      "acceptance_criteria": [
-        "Timer calculates remaining time based on the difference between current wall-clock time and the target end time (Date-based), rather than relying on setInterval tick count.",
-        "When user returns to a backgrounded tab, the displayed time is correct (within 1 second of actual elapsed time).",
-        "Timer drift over 10 minutes is no more than 1 second."
-      ]
-    },
-    {
-      "id": "FR-007",
-      "description": "Support responsive design so the timer is usable on both desktop and mobile browsers.",
-      "priority": "medium",
-      "acceptance_criteria": [
-        "Layout is single-column and stacks vertically on screens narrower than 480px.",
-        "All buttons and inputs have touch-friendly tap targets (minimum 44x44px per WCAG).",
-        "Timer font size scales down appropriately on small screens (minimum 48px).",
-        "No horizontal scrolling required on any screen width >= 320px."
+        "Running 'python hello.py' outputs exactly 'Hello World' followed by a newline",
+        "The exit code is 0",
+        "No error messages are written to stderr"
       ]
     }
   ],
   "non_functional_requirements": [
     {
       "type": "performance",
-      "description": "Page must load and become interactive in under 2 seconds on a 3G connection.",
-      "threshold": "< 2s time-to-interactive"
-    },
-    {
-      "type": "reliability",
-      "description": "Countdown accuracy must stay within 1 second of true elapsed time for durations up to 1 hour, regardless of tab focus.",
-      "threshold": "<= 1 second drift over 1 hour"
-    },
-    {
-      "type": "security",
-      "description": "No user data is collected or transmitted; the page must function without any network requests after initial load.",
-      "threshold": "0 external requests after page load"
+      "description": "Script must execute in under 1 second on any standard Python interpreter",
+      "threshold": "execution time < 1 second"
     },
     {
       "type": "usability",
-      "description": "Interface must be intuitive enough that a first-time user can set and start a timer within 10 seconds without instructions.",
-      "threshold": "< 10s time-to-first-countdown for new users"
+      "description": "The file must be readable and directly runnable without modification",
+      "threshold": "no arguments or configuration required"
     },
     {
-      "type": "scalability",
-      "description": "This is a single-user client-side application. No server-side scaling concerns apply.",
-      "threshold": "N/A (client-side only)"
+      "type": "reliability",
+      "description": "The script must run on any Python 3.x interpreter without version-specific issues",
+      "threshold": "compatible with Python 3.0+"
     }
   ],
   "constraints": [
-    "Must be implemented as a single self-contained HTML file (HTML + CSS + JS inline) with zero external dependencies, or minimally a small set of files in the same directory.",
-    "No backend server, database, or API calls required.",
-    "Must work in the latest 2 versions of Chrome, Firefox, Safari, and Edge.",
-    "Must not require any browser extensions or plugins.",
-    "Total page weight (HTML + CSS + JS + assets) must not exceed 200 KB."
+    "Python 3.x must be installed on the target system",
+    "The file must use only the Python standard library (no external dependencies)",
+    "File encoding must be UTF-8"
   ],
   "assumptions": [
-    "The timer is used for short to medium durations (seconds to a few hours), not multi-day countdowns.",
-    "No user accounts, login, or data persistence across sessions is needed.",
-    "A simple, clean visual design is acceptable — no specific brand or theme is required.",
-    "The audio alert will use the Web Audio API or an inline <audio> element with a generated/embedded sound rather than external audio files.",
-    "The countdown stops at 00:00 without automatically counting up (a 'stop at zero' behavior).",
-    "The browser Notification API may be used, but the timer should function fully even if the user denies notification permission."
+    "The user has a working Python 3.x installation accessible from the command line",
+    "The output target is standard output (stdout), not a file or other destination",
+    "The casing of 'Hello World' is intentional (camel case with capital H and W, no punctuation)"
   ],
   "clarifying_questions": [
     {
-      "question": "Should the timer automatically start counting UP after reaching zero (a stopwatch-style overflow), stop at zero, or loop back to the original set time?",
+      "question": "Should the output be exactly 'Hello World' (without exclamation mark or other punctuation), or should it include '!' as in the traditional 'Hello World!'?",
       "answer": null
     },
     {
-      "question": "Do you want a dark mode / light mode toggle, or is a single default color scheme acceptable?",
-      "answer": null
-    },
-    {
-      "question": "Should the timer state persist across page refreshes (using localStorage), or is it acceptable for a refresh to reset to defaults?",
-      "answer": null
-    },
-    {
-      "question": "Do you prefer a fullscreen immersive design (like a dedicated timer app) or a standard webpage layout with the timer as the central element?",
+      "question": "Should the script use a shebang line (#!/usr/bin/env python3) for direct execution on Unix systems?",
       "answer": null
     }
   ]

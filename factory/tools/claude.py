@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import pty
 import subprocess
@@ -25,26 +26,116 @@ class ClaudeInvocation:
     system_prompt: Optional[str] = None
     working_dir: Optional[str | Path] = None
     allowed_tools: list[str] = field(default_factory=lambda: ["Read", "Write", "Glob", "Grep"])
-    output_format: str = "text"
+    output_format: str = "stream-json"
     timeout_seconds: int = 1800
     permission_mode: str = "auto"
     run_id: Optional[str] = None
     cancel_event: Optional[threading.Event] = None
 
 
+def _format_stream_event(evt: dict) -> str | None:
+    """Convert a stream-json event into a human-readable log line. Returns None to skip."""
+    etype = evt.get("type", "")
+
+    # System init — show model info
+    if etype == "system" and evt.get("subtype") == "init":
+        model = evt.get("model", "unknown")
+        return f"[System] Session started | model={model}\n"
+
+    # Skip other system messages
+    if etype == "system":
+        return None
+
+    # Streaming content deltas (thinking or text)
+    if etype == "stream_event":
+        event = evt.get("event", {})
+        delta = event.get("delta", {})
+        if not delta:
+            return None
+
+        if "thinking_delta" in delta:
+            return delta["thinking_delta"]
+        elif "text_delta" in delta:
+            return delta["text_delta"]
+        elif "signature_delta" in delta:
+            return None  # skip signature deltas
+        elif "input_json_delta" in delta:
+            return delta["input_json_delta"]
+
+        return None
+
+    # Tool use block
+    if etype == "stream_event":
+        event = evt.get("event", {})
+        if event.get("type") == "content_block_start":
+            cb = event.get("content_block", {})
+            if cb.get("type") == "tool_use":
+                name = cb.get("name", "?")
+                inp = cb.get("input", {})
+                # Summarize tool input
+                if name in ("Bash",):
+                    cmd = inp.get("command", "")
+                    return f"\n[Tool] {name}: {cmd[:120]}\n"
+                elif name == "Write":
+                    fp = inp.get("file_path", "?")
+                    return f"\n[Tool] Write: {fp}\n"
+                elif name == "Edit":
+                    fp = inp.get("file_path", "?")
+                    return f"\n[Tool] Edit: {fp}\n"
+                elif name == "Read":
+                    fp = inp.get("file_path", "?")
+                    return f"\n[Tool] Read: {fp}\n"
+                else:
+                    return f"\n[Tool] {name}\n"
+        return None
+
+    # Tool result (user message type)
+    if etype == "user":
+        message = evt.get("message", {})
+        content = message.get("content", [])
+        for block in content:
+            if block.get("type") == "tool_result":
+                out = block.get("content", "")
+                if isinstance(out, list):
+                    out = " ".join(str(c.get("text", "")) for c in out)
+                truncated = out[:200] + "..." if len(out) > 200 else out
+                return f"[Tool Result] {truncated}\n"
+        return None
+
+    # Assistant message — extract text content
+    if etype == "assistant":
+        message = evt.get("message", {})
+        content = message.get("content", [])
+        parts = []
+        for block in content:
+            if block.get("type") == "text":
+                parts.append(block.get("text", ""))
+            elif block.get("type") == "tool_use":
+                name = block.get("name", "?")
+                inp = json.dumps(block.get("input", {}), ensure_ascii=False)
+                parts.append(f"\n[Tool] {name}: {inp[:200]}\n")
+        return "".join(parts) if parts else None
+
+    # Result event — contains final text
+    if etype == "result":
+        result_text = evt.get("result", "")
+        return result_text
+
+    return None
+
+
 def invoke_claude(inv: ClaudeInvocation, log_file: Optional[Path] = None,
                   active_procs: Optional[dict] = None) -> ClaudeResult:
-    """Invoke Claude Code CLI in -p (print) mode.
+    """Invoke Claude Code CLI in -p mode with stream-json for real-time log output.
 
-    Uses a PTY (pseudo-terminal) so Claude produces line-buffered output,
-    allowing real-time log streaming while the process runs.
-
-    If active_procs dict and inv.run_id are provided, the subprocess reference
-    is stored so it can be killed externally via cancel().
+    Uses PTY for line-buffered I/O. Parses JSONL stream events and writes
+    human-readable log lines to log_file as they arrive.
     """
     cmd = ["claude", "-p", inv.prompt]
 
     cmd.extend(["--output-format", inv.output_format])
+    cmd.extend(["--include-partial-messages"])
+    cmd.extend(["--verbose"])
 
     if inv.system_prompt:
         cmd.extend(["--system-prompt", inv.system_prompt])
@@ -59,10 +150,11 @@ def invoke_claude(inv: ClaudeInvocation, log_file: Optional[Path] = None,
         log_file.parent.mkdir(parents=True, exist_ok=True)
         log_file.write_text("")
 
+    # Open PTY for line-buffered output
     try:
         master_fd, slave_fd = pty.openpty()
     except OSError:
-        return _invoke_with_pipe(cmd, inv, log_file, active_procs)
+        return _invoke_with_pipe_legacy(cmd, inv, log_file, active_procs)
 
     try:
         proc = subprocess.Popen(
@@ -77,23 +169,20 @@ def invoke_claude(inv: ClaudeInvocation, log_file: Optional[Path] = None,
     except FileNotFoundError:
         os.close(master_fd)
         os.close(slave_fd)
-        return ClaudeResult(
-            success=False,
-            stderr="Claude Code CLI not found. Is it installed?",
-            exit_code=-1,
-        )
+        return ClaudeResult(success=False, stderr="Claude Code CLI not found. Is it installed?", exit_code=-1)
 
     os.close(slave_fd)
 
-    # Register process for external cancellation
     if active_procs is not None and inv.run_id:
         active_procs[inv.run_id] = proc
 
-    stdout_lines: list[str] = []
+    all_text: list[str] = []
+    result_text = ""
     cancelled = False
 
     def read_output():
-        nonlocal cancelled
+        nonlocal cancelled, result_text
+        buf = ""
         while True:
             if inv.cancel_event and inv.cancel_event.is_set():
                 cancelled = True
@@ -103,13 +192,33 @@ def invoke_claude(inv: ClaudeInvocation, log_file: Optional[Path] = None,
                 if not data:
                     break
                 text = data.decode("utf-8", errors="replace")
-                stdout_lines.append(text)
-                if log_file:
+                buf += text
+
+                # Process complete lines
+                while "\n" in buf:
+                    line, buf = buf.split("\n", 1)
+                    line = line.strip()
+                    if not line:
+                        continue
+
+                    # Write raw JSON line to log for debugging
+                    log_line = None
                     try:
-                        with open(log_file, "a") as f:
-                            f.write(text)
-                    except Exception:
-                        pass
+                        evt = json.loads(line)
+                        log_line = _format_stream_event(evt)
+                        if evt.get("type") == "result":
+                            result_text = evt.get("result", "")
+                    except json.JSONDecodeError:
+                        log_line = None
+
+                    if log_line:
+                        all_text.append(log_line)
+                        if log_file:
+                            try:
+                                with open(log_file, "a") as f:
+                                    f.write(log_line)
+                            except Exception:
+                                pass
             except OSError:
                 break
 
@@ -128,18 +237,21 @@ def invoke_claude(inv: ClaudeInvocation, log_file: Optional[Path] = None,
             pass
         os.close(master_fd)
         reader.join(timeout=5)
-        stdout = "".join(stdout_lines)
+
+        msg = "\n[Cancelled]\n" if cancelled else f"\n[Timeout after {inv.timeout_seconds}s]\n"
         if log_file:
             try:
                 with open(log_file, "a") as f:
-                    f.write(f"\n[{'Cancelled' if cancelled else 'Timeout after ' + str(inv.timeout_seconds) + 's'}]\n")
+                    f.write(msg)
             except Exception:
                 pass
+
         if active_procs and inv.run_id:
             active_procs.pop(inv.run_id, None)
+
         return ClaudeResult(
             success=False,
-            stdout=stdout,
+            stdout=result_text or "".join(all_text),
             stderr="Cancelled" if cancelled else f"Timeout after {inv.timeout_seconds}s",
             exit_code=-1,
         )
@@ -150,16 +262,17 @@ def invoke_claude(inv: ClaudeInvocation, log_file: Optional[Path] = None,
     if active_procs and inv.run_id:
         active_procs.pop(inv.run_id, None)
 
-    stdout = "".join(stdout_lines)
+    # Use the result text if available, otherwise use accumulated text
+    final_output = result_text if result_text else "".join(all_text)
     return ClaudeResult(
         success=proc.returncode == 0,
-        stdout=stdout,
+        stdout=final_output,
         stderr="",
         exit_code=proc.returncode,
     )
 
 
-def _invoke_with_pipe(cmd, inv, log_file, active_procs):
+def _invoke_with_pipe_legacy(cmd, inv, log_file, active_procs):
     """Fallback: use PIPE when PTY is unavailable."""
     try:
         proc = subprocess.Popen(
@@ -170,11 +283,7 @@ def _invoke_with_pipe(cmd, inv, log_file, active_procs):
             cwd=str(inv.working_dir) if inv.working_dir else None,
         )
     except FileNotFoundError:
-        return ClaudeResult(
-            success=False,
-            stderr="Claude Code CLI not found. Is it installed?",
-            exit_code=-1,
-        )
+        return ClaudeResult(success=False, stderr="Claude Code CLI not found. Is it installed?", exit_code=-1)
 
     if active_procs is not None and inv.run_id:
         active_procs[inv.run_id] = proc
@@ -214,8 +323,7 @@ def _invoke_with_pipe(cmd, inv, log_file, active_procs):
         if active_procs and inv.run_id:
             active_procs.pop(inv.run_id, None)
         return ClaudeResult(
-            success=False,
-            stdout=stdout,
+            success=False, stdout=stdout,
             stderr="Cancelled" if cancelled else f"Timeout after {inv.timeout_seconds}s",
             exit_code=-1,
         )
@@ -227,12 +335,7 @@ def _invoke_with_pipe(cmd, inv, log_file, active_procs):
     if active_procs and inv.run_id:
         active_procs.pop(inv.run_id, None)
 
-    return ClaudeResult(
-        success=proc.returncode == 0,
-        stdout=stdout,
-        stderr=stderr,
-        exit_code=proc.returncode,
-    )
+    return ClaudeResult(success=proc.returncode == 0, stdout=stdout, stderr=stderr, exit_code=proc.returncode)
 
 
 class ClaudeRunner:
