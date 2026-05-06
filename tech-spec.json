@@ -1,0 +1,353 @@
+{
+  "overview": "A minimal, single-page personal website built as a pure static site (JAMstack). React + Vite + Tailwind CSS frontend with no backend or database. All content is driven by JSON configuration files in /src/data/, editable by non-developers. The site consists of five anchor-linked sections (Hero, About, Portfolio, Contact, Footer) with a fixed navigation bar, dark/light mode toggle, and responsive design from 320px to 2560px. The contact form delegates to Formspree (free third-party service). Built and deployed to Vercel's free tier with automatic CI/CD from a public GitHub repository. No SSR, no API server, no database — fully static HTML/JS/CSS output.",
+  "components": [
+    {
+      "name": "App",
+      "description": "Root React component. Wraps the entire application with ThemeProvider and SEOHead. Renders Navbar and all page sections in a single-column layout. Owns scroll-spy state for active navigation highlighting.",
+      "responsibilities": [
+        "Render page shell: Navbar, main content sections, Footer, ScrollToTop",
+        "Provide ThemeProvider context to all children",
+        "Manage active section state via IntersectionObserver for nav highlighting",
+        "Set up smooth-scroll behavior for anchor navigation"
+      ],
+      "dependencies": ["ThemeProvider", "SEOHead", "Navbar", "HeroSection", "AboutSection", "PortfolioSection", "ContactSection", "Footer", "ScrollToTop"]
+    },
+    {
+      "name": "ThemeProvider",
+      "description": "React context provider for dark/light theme management. Detects system preference on initial load via prefers-color-scheme media query. Persists user override in localStorage. Toggles a 'dark' class on <html> for Tailwind's class-based dark mode.",
+      "responsibilities": [
+        "Detect system color-scheme preference on first visit",
+        "Read stored theme preference from localStorage (override system default)",
+        "Expose theme ('light' | 'dark') and toggleTheme() via context",
+        "Add/remove 'dark' class on document.documentElement for Tailwind dark mode",
+        "Persist user choice to localStorage on toggle"
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "SEOHead",
+      "description": "Manages document <head> content using react-helmet-async. Sets page title, meta description, Open Graph tags, and canonical URL from site config. Each section could optionally update these via props if multi-page-like behavior is desired, but for v1 a single static head configuration suffices.",
+      "responsibilities": [
+        "Set <title> from siteConfig",
+        "Set meta description, keywords",
+        "Set Open Graph tags (og:title, og:description, og:image, og:url, og:type)",
+        "Set Twitter Card tags for social sharing",
+        "Set canonical URL",
+        "Include JSON-LD structured data (Person schema) for SEO"
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "Navbar",
+      "description": "Fixed/sticky top navigation bar. On desktop (≥768px), displays horizontal nav links. On mobile (<768px), collapses into a hamburger menu with a slide-down panel. Highlights the currently visible section based on scroll position. All links trigger smooth-scroll to anchor targets.",
+      "responsibilities": [
+        "Render site logo/name on the left",
+        "Render nav links: Hero, About, Portfolio, Contact (from config)",
+        "Highlight active link based on current section in viewport",
+        "On mobile: render hamburger icon, toggle dropdown panel on click",
+        "Close mobile menu on link click or outside click",
+        "Include theme toggle button (sun/moon icon)",
+        "Sticky positioning with backdrop blur on scroll",
+        "Skip-to-content link for keyboard accessibility"
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "HeroSection",
+      "description": "Full-viewport-height hero area. Displays the site owner's avatar, name, a short tagline/intro, and call-to-action buttons that scroll to other sections (About, Portfolio, Contact). Visual focus is on personal brand and first impression.",
+      "responsibilities": [
+        "Render owner avatar image (from /public/images/, lazy loaded)",
+        "Display name (h1) and tagline (p) from profile config",
+        "Render 1-3 CTA buttons linking to other sections via anchor",
+        "Ensure content fits on screen without scrolling on all viewport sizes",
+        "Support animated entrance (optional subtle fade-in on load)",
+        "Semantic HTML: use <header> landmark"
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "AboutSection",
+      "description": "Multi-part about section containing: (1) a bio paragraph introducing the owner, (2) skill badges displayed as a flex-wrap tag cloud, and (3) a vertical timeline of work/education experience. All content driven by config files.",
+      "responsibilities": [
+        "Render section heading with id='about' for anchor navigation",
+        "Render bio paragraph from profile config",
+        "Render skill badges as styled tags (via SkillBadge component)",
+        "Render experience timeline (via Timeline component)",
+        "Support optional profile image alongside bio",
+        "Semantic HTML: use <section> with aria-label"
+      ],
+      "dependencies": ["SkillBadge", "Timeline"]
+    },
+    {
+      "name": "SkillBadge",
+      "description": "A small styled badge/pill displaying a single skill name. Optionally color-coded by category (e.g., Frontend, Backend, Design, Tools). Pure presentational component.",
+      "responsibilities": [
+        "Render skill name as a pill/tag with Tailwind styling",
+        "Apply category-based color if provided (via Tailwind color classes)",
+        "Ensure text is readable at small sizes (≥14px)"
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "Timeline",
+      "description": "A vertical timeline layout component. Renders an ordered list of TimelineItem entries with a connecting vertical line and dot/bullet markers. Responsive: left-aligned on mobile, alternating left/right on desktop (optional, can also be single-column for simplicity).",
+      "responsibilities": [
+        "Receive array of timeline entries as prop",
+        "Render vertical line with dot markers",
+        "Layout items in chronological order (newest first or last, configurable)",
+        "Responsive layout: single column mobile, two-column alternating on desktop"
+      ],
+      "dependencies": ["TimelineItem"]
+    },
+    {
+      "name": "TimelineItem",
+      "description": "A single entry in the experience timeline. Displays title/role, organization, date range (start–end or start–present), and a brief description. Supports optional organization logo or icon.",
+      "responsibilities": [
+        "Render title (role/degree), organization name, date range",
+        "Render description text if provided",
+        "Show 'Present' label if no end date",
+        "Apply visual dot/bullet connector to the timeline line"
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "PortfolioSection",
+      "description": "Project/work showcase section. Renders a responsive CSS Grid of ProjectCard components. On desktop (≥1024px), 3 columns. On tablet (≥640px), 2 columns. On mobile, 1 column. Includes a section heading and optional filter by project tag/category (v2 consideration).",
+      "responsibilities": [
+        "Render section heading with id='portfolio' for anchor navigation",
+        "Render responsive grid of ProjectCard components",
+        "Handle empty state if no projects are configured",
+        "Semantic HTML: use <section> with aria-label"
+      ],
+      "dependencies": ["ProjectCard"]
+    },
+    {
+      "name": "ProjectCard",
+      "description": "An individual project card displaying a thumbnail image (or placeholder), project title, short description (≤200 chars), technology tags, and external links (live demo URL, GitHub repo URL). Cards have hover elevation effect for visual polish.",
+      "responsibilities": [
+        "Render thumbnail image with lazy loading and alt text",
+        "Show placeholder gradient or icon if no thumbnail provided",
+        "Display project title (h3) and description (p, truncated)",
+        "Render technology tags as small badges",
+        "Render external link buttons (Live Demo, GitHub) — open in new tab",
+        "Apply hover shadow/scale transition",
+        "Ensure keyboard focusability for links",
+        "Semantic HTML: use <article>"
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "ContactSection",
+      "description": "Contact section with two sub-components: (1) direct contact info (email link, social media icon links), and (2) an optional contact form that POSTs to Formspree. If no Formspree endpoint is configured, only show direct contact info.",
+      "responsibilities": [
+        "Render section heading with id='contact' for anchor navigation",
+        "Display email with mailto: link",
+        "Display social media links as icon buttons (from Lucide React)",
+        "Render ContactForm if formspreeEndpoint is configured",
+        "Semantic HTML: use <section> with aria-label"
+      ],
+      "dependencies": ["ContactForm"]
+    },
+    {
+      "name": "ContactForm",
+      "description": "A simple contact form with name, email, subject, and message fields. Submits to Formspree (or configurable Web3Forms endpoint). Handles loading, success, and error states. Includes a honeypot field for basic bot protection. Client-side validation for required fields and email format.",
+      "responsibilities": [
+        "Render controlled inputs: name (required), email (required, validated), subject, message (required)",
+        "Client-side validation: required fields, email regex",
+        "Include honeypot hidden field for bot protection",
+        "POST form data as JSON to configured Formspree endpoint",
+        "Show loading state on submit button during request",
+        "Display success message on 200 response, clear form",
+        "Display error message on failure, allow retry",
+        "Reset form after successful submission (with delay)",
+        "Accessible: label-input associations, error announcements via aria-live"
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "Footer",
+      "description": "Site footer with copyright notice, social media icon links, and an optional 'Back to Top' button. Minimal and clean — matches the overall aesthetic.",
+      "responsibilities": [
+        "Render copyright with current year and owner name",
+        "Render social media icon links (same set as ContactSection)",
+        "Render optional back-to-top button",
+        "Semantic HTML: use <footer>"
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "ScrollToTop",
+      "description": "A floating action button that appears after the user scrolls down past the hero section. On click, smoothly scrolls the page back to the top. Uses a simple opacity/translate transition for show/hide.",
+      "responsibilities": [
+        "Monitor scroll position via scroll event listener (throttled)",
+        "Show button when scrollY exceeds hero section height",
+        "Hide button when near top of page",
+        "On click, window.scrollTo({ top: 0, behavior: 'smooth' })",
+        "Accessible: aria-label, keyboard focusable"
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "useTheme (hook)",
+      "description": "Custom React hook that consumes ThemeContext. Provides theme value ('light' | 'dark') and toggleTheme() function to any component. Thin wrapper around useContext for ergonomic access.",
+      "responsibilities": [
+        "Return { theme, toggleTheme } from ThemeContext",
+        "Throw descriptive error if used outside ThemeProvider"
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "useScrollSpy (hook)",
+      "description": "Custom hook that uses IntersectionObserver to track which page section is currently visible in the viewport. Returns the id of the active section for nav highlighting. Configurable threshold and root margin for when a section is considered 'active'.",
+      "responsibilities": [
+        "Accept array of section ids to observe",
+        "Create IntersectionObserver with configurable rootMargin and threshold",
+        "Return the id of the most visible section",
+        "Clean up observer on unmount"
+      ],
+      "dependencies": []
+    },
+    {
+      "name": "useSiteConfig (hook)",
+      "description": "Custom hook that imports and returns the merged site configuration from /src/data/ JSON files. Centralizes all content data access. In v1, this is a simple static import of JSON modules (Vite handles JSON imports natively). In v2, this could fetch from a CMS.",
+      "responsibilities": [
+        "Import and merge config files: site.json, profile.json, skills.json, experience.json, projects.json, contact.json",
+        "Return typed config object with all site data",
+        "Provide default values for optional fields"
+      ],
+      "dependencies": []
+    }
+  ],
+  "data_models": [
+    {
+      "name": "SiteConfig",
+      "fields": {
+        "siteTitle": "string — displayed in browser tab and OG tags",
+        "siteDescription": "string — meta description (120-160 chars recommended for SEO)",
+        "siteUrl": "string — canonical URL (e.g., https://example.com)",
+        "language": "string — HTML lang attribute (default: 'zh-CN')",
+        "ogImage": "string — path to Open Graph image (1200x630px recommended)"
+      }
+    },
+    {
+      "name": "Profile",
+      "fields": {
+        "name": "string — full name displayed in hero and page title",
+        "tagline": "string — short one-line introduction (displayed under name in hero)",
+        "avatar": "string — path to avatar image (relative to /public/images/)",
+        "bio": "string — longer biographical paragraph (≥50 chars, shown in About section)",
+        "resumeUrl": "string | null — optional URL to downloadable resume/CV file"
+      }
+    },
+    {
+      "name": "Skill",
+      "fields": {
+        "name": "string — skill name (e.g., 'React', 'TypeScript')",
+        "category": "string — grouping category (e.g., 'Frontend', 'Backend', 'Design', 'Tools')"
+      }
+    },
+    {
+      "name": "Experience",
+      "fields": {
+        "type": "'work' | 'education' — distinguishes work experience from education",
+        "title": "string — job title or degree name",
+        "organization": "string — company name or school name",
+        "startDate": "string — ISO date or 'YYYY-MM' format",
+        "endDate": "string | null — ISO date or 'YYYY-MM'; null means 'Present'",
+        "description": "string — brief description of role, responsibilities, or achievements"
+      }
+    },
+    {
+      "name": "Project",
+      "fields": {
+        "title": "string — project name",
+        "description": "string — short description (≤200 chars recommended)",
+        "thumbnail": "string — path to thumbnail image (relative to /public/images/)",
+        "tags": "string[] — technology tags (e.g., ['React', 'Node.js', 'Tailwind'])",
+        "liveUrl": "string | null — URL to live demo/production site",
+        "githubUrl": "string | null — URL to GitHub repository"
+      }
+    },
+    {
+      "name": "Contact",
+      "fields": {
+        "email": "string — email address for mailto: link and display",
+        "formspreeEndpoint": "string | null — Formspree form endpoint URL (if null, hide form)",
+        "socialLinks": "SocialLink[] — array of social media profiles"
+      }
+    },
+    {
+      "name": "SocialLink",
+      "fields": {
+        "platform": "string — platform identifier (e.g., 'github', 'linkedin', 'twitter', 'zhihu', 'wechat')",
+        "url": "string — full URL to profile",
+        "label": "string — accessible label for the link"
+      }
+    },
+    {
+      "name": "NavItem",
+      "fields": {
+        "id": "string — anchor id of target section (e.g., 'about', 'portfolio', 'contact')",
+        "label": "string — display text in navigation bar"
+      }
+    },
+    {
+      "name": "ContactFormData",
+      "fields": {
+        "name": "string — sender's name (required)",
+        "email": "string — sender's email (required, validated format)",
+        "subject": "string — message subject (optional)",
+        "message": "string — message body (required)"
+      }
+    }
+  ],
+  "api_contracts": [
+    {
+      "method": "POST",
+      "path": "https://formspree.io/f/{form-id}",
+      "description": "Submit contact form data to Formspree. Formspree handles email delivery and optional spam filtering. The frontend POSTs JSON with name, email, subject, and message fields. Formspree returns 200 on success with { ok: true } or 400/500 on error with { error: string }. Rate limiting is handled by Formspree's free tier (50 submissions/month). No API key needed — the form ID embedded in the endpoint URL acts as the authentication token. CSRF is not a concern for static sites since there's no session/cookie state, but the honeypot field provides basic bot protection.",
+      "request_body": "ContactFormData (JSON: { name: string, email: string, subject?: string, message: string })",
+      "response_body": "{ ok: true } on success | { error: string } on failure"
+    }
+  ],
+  "tech_stack": {
+    "frontend": {
+      "framework": "React 18 with TypeScript",
+      "bundler": "Vite 5 (fast HMR, native ESM, optimized production builds)",
+      "styling": "Tailwind CSS v3 with class-based dark mode ('darkMode: \"class\"'), custom theme extensions for brand colors in tailwind.config.ts",
+      "icons": "Lucide React (MIT license, tree-shakeable, comprehensive icon set)",
+      "seo": "react-helmet-async for <head> management (title, meta, OG tags)",
+      "key_dependencies": ["react", "react-dom", "react-helmet-async", "lucide-react"]
+    },
+    "content": {
+      "format": "JSON files in /src/data/ (site.json, profile.json, skills.json, experience.json, projects.json, contact.json)",
+      "loading": "Static imports at build time via Vite's native JSON import support. No runtime fetching.",
+      "updatability": "Non-developers edit JSON files directly in the GitHub repository (via GitHub web UI) or local text editor. A CMS could be added in v2."
+    },
+    "form_handling": {
+      "service": "Formspree (free tier: 50 submissions/month, no credit card required)",
+      "fallback": "Web3Forms (also free, similar API contract — change endpoint URL only)",
+      "spam_protection": "Honeypot hidden field (bots autofill it, server rejects)"
+    },
+    "hosting": {
+      "platform": "Vercel (free Hobby tier)",
+      "build_command": "vite build",
+      "output_directory": "dist/",
+      "custom_domain": "Supported (user provides domain, configures DNS CNAME)",
+      "ssl": "Automatic HTTPS via Vercel (Let's Encrypt)",
+      "cdn": "Vercel Edge Network (global CDN included in free tier)"
+    },
+    "dev_tooling": {
+      "package_manager": "npm",
+      "typescript": "Strict mode enabled",
+      "linting": "ESLint with react-hooks plugin",
+      "formatting": "Prettier",
+      "git_hooks": "None required for v1 (manual quality checks sufficient for MVP)"
+    },
+    "browser_support": {
+      "targets": "Chrome, Firefox, Safari, Edge — latest 2 major versions",
+      "polyfills": "Vite's default browser target covers modern browsers. No additional polyfills needed."
+    }
+  },
+  "architecture_notes": "**Key Architectural Decisions:**\n\n1. **Pure static site (no SSR/SSG framework)**: For v1 with content in JSON files and no blog, a full SSG framework (Next.js, Astro, Gatsby) adds complexity without benefit. Vite builds a React SPA that loads instantly on CDN. If a blog is added in v2, consider migrating to Astro or Next.js static export.\n\n2. **JSON config files over Markdown/MDX**: JSON is structured, easily type-checked by TypeScript, and familiar to non-developers editing in a web interface. Markdown adds parsing complexity for no benefit when content is short-form (bio, project descriptions, skill lists).\n\n3. **Class-based Tailwind dark mode (not media-query-based)**: Using `darkMode: 'class'` in Tailwind config allows the ThemeProvider to control dark mode imperatively (system default on first load, then user override via toggle). Media-query-based would not allow manual override.\n\n4. **No routing library**: Single-page design with anchor navigation (smooth scrolling to #section-id). React Router would be overkill — there's only one page with multiple sections. Browser back/forward naturally works with hash anchors.\n\n5. **Formspree over custom backend**: The constraint explicitly forbids a backend. Formspree's free tier handles 50 submissions/month, requires zero server code, and is trivially replaceable (swap endpoint URL for Web3Forms). The honeypot technique avoids dependency on reCAPTCHA (which requires a Google account and adds third-party JS).\n\n6. **No image optimization build step in v1**: Images are manually optimized to WebP at appropriate sizes before committing. Adding vite-plugin-imagemin or using Vercel's built-in image optimization can be done in v2 if image count grows.\n\n7. **Single CSS bundle via Tailwind**: Tailwind's JIT compiler outputs only the utility classes actually used in components, keeping the CSS payload minimal (~3-5 KB gzipped for a site of this size). No CSS-in-JS runtime overhead.\n\n8. **TypeScript strict mode**: Since content comes from JSON config files, TypeScript provides type-safety for config structure — catching missing fields or type mismatches at build time rather than runtime. This is especially valuable when non-developers edit config files.\n\n**Risks and Trade-offs:**\n\n- **SPA SEO limitation**: React SPAs rendered client-side may not be fully indexed by all search engines. However, modern Googlebot executes JavaScript and Vercel's CDN serves the HTML shell fast. For v1 this is acceptable. If SEO becomes critical, migrate to SSG (Astro/Next.js) in v2.\n\n- **Formspree free tier limit**: 50 submissions/month. If the contact form receives more traffic, the site will show errors after the limit is hit. Mitigation: document this in the README and provide a direct email alternative. Upgrade path: Formspree paid tier ($10/month) or switch to a serverless function.\n\n- **JSON config editing UX**: Non-developers editing JSON may introduce syntax errors (missing comma, unclosed bracket). Mitigation: add a simple JSON schema validation script (`npm run validate-config`) that checks config files before build. Document common pitfalls in README.\n\n- **Image management**: All images live in the Git repository. For a personal site with ~10 images this is fine. If the image count grows significantly, consider a CDN/object storage solution (Cloudinary free tier, Vercel Blob).\n\n- **No CMS preview**: Content changes require a Git commit and Vercel redeploy (~30 seconds). For a personal site updated infrequently, this is acceptable. Add Decap CMS (formerly Netlify CMS) in v2 if visual editing is desired.\n\n**Deployment Flow:**\n1. Developer (or site owner via GitHub web UI) edits JSON config files or components\n2. Commit and push to `main` branch on GitHub\n3. Vercel auto-detects push, runs `vite build`, deploys `dist/` to CDN\n4. Site is live at `*.vercel.app` (or custom domain) within 30-60 seconds\n\n**Directory Structure:**\n```\n/\n├── index.html                  # Vite entry HTML\n├── package.json\n├── tsconfig.json\n├── vite.config.ts\n├── tailwind.config.ts\n├── postcss.config.js\n├── public/\n│   ├── images/\n│   │   ├── avatar.webp         # Owner avatar\n│   │   ├── og-image.webp       # Open Graph image (1200x630)\n│   │   └── projects/           # Project thumbnails\n│   └── favicon.ico\n├── src/\n│   ├── main.tsx                # React entry point\n│   ├── App.tsx                  # Root component\n│   ├── index.css                # Tailwind directives + custom base styles\n│   ├── components/\n│   │   ├── Navbar.tsx\n│   │   ├── HeroSection.tsx\n│   │   ├── AboutSection.tsx\n│   │   ├── SkillBadge.tsx\n│   │   ├── Timeline.tsx\n│   │   ├── TimelineItem.tsx\n│   │   ├── PortfolioSection.tsx\n│   │   ├── ProjectCard.tsx\n│   │   ├── ContactSection.tsx\n│   │   ├── ContactForm.tsx\n│   │   ├── Footer.tsx\n│   │   ├── ScrollToTop.tsx\n│   │   ├── ThemeProvider.tsx\n│   │   └── SEOHead.tsx\n│   ├── hooks/\n│   │   ├── useTheme.ts\n│   │   ├── useScrollSpy.ts\n│   │   └── useSiteConfig.ts\n│   ├── data/\n│   │   ├── site.json           # Site metadata\n│   │   ├── profile.json        # Name, bio, avatar\n│   │   ├── skills.json         # Skill list with categories\n│   │   ├── experience.json     # Work/education timeline\n│   │   ├── projects.json       # Portfolio projects\n│   │   └── contact.json        # Email, social links, form config\n│   ├── types/\n│   │   └── index.ts            # TypeScript interfaces for all config types\n│   └── utils/\n│       └── constants.ts        # Shared constants (section IDs, social platform icon map)\n└── scripts/\n    └── validate-config.ts      # Optional config validation script\n```"
+}

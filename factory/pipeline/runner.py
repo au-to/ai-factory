@@ -24,7 +24,9 @@ class StageRunner:
         self.runner = runner
         self.bus = bus
         self.state = state
+
     def execute(self, stage: StageConfig, run_id: str,
+                cancel_event=None,
                 extra_context: Optional[dict] = None) -> ClaudeResult:
         """Execute a single pipeline stage. Returns ClaudeResult."""
         agent = self.registry.get(stage.agent)
@@ -56,6 +58,7 @@ class StageRunner:
             system_prompt=agent.system_prompt if agent.system_prompt else None,
             working_dir=working_dir,
             allowed_tools=stage.allowed_tools or agent.allowed_tools,
+            cancel_event=cancel_event,
         )
 
         if result.success:

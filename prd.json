@@ -1,206 +1,148 @@
 {
-  "title": "Simple TODO Application — React Frontend + Express Backend + SQLite",
-  "problem_statement": "Users need a simple, reliable way to capture, organize, and track daily tasks. Without a dedicated task management tool, tasks get lost in chat messages, sticky notes, or mental memory, leading to missed deadlines and reduced productivity. This application provides a focused, local-first TODO list where users can quickly add, edit, complete, and remove tasks — with all data persisted durably in SQLite, requiring no external database server or cloud dependency.",
+  "title": "Simple Countdown Timer Webpage",
+  "problem_statement": "Users need a simple, distraction-free countdown timer that works instantly in a web browser — no installation, no login, no setup. Common use cases include time-boxing tasks, managing presentations, timing workouts, cooking, or any activity where a quick visual countdown helps maintain focus and urgency.",
   "target_users": [
-    "Individual users managing personal daily tasks",
-    "Professionals tracking work items and action items",
-    "Students organizing assignments and study tasks",
-    "Developers who want a zero-dependency local task tracker"
+    "General productivity users (Pomodoro technique, time-boxing)",
+    "Presenters and public speakers (timing talks and presentations)",
+    "Students (exam prep, timed study sessions)",
+    "Home users (cooking, exercise, short-duration tasks)"
   ],
   "functional_requirements": [
     {
       "id": "FR-001",
-      "description": "View the full list of TODO items on page load",
+      "description": "Display the remaining countdown time in large, clearly readable format (HH:MM:SS or MM:SS depending on duration).",
       "priority": "high",
       "acceptance_criteria": [
-        "On page load, the frontend fetches GET /api/tasks and renders all tasks",
-        "Each task displays its title, description (if present), completion status, and creation date",
-        "An empty-state message is shown when no tasks exist (e.g., 'No tasks yet — create one above!')",
-        "The list re-renders automatically after any add, edit, toggle, or delete operation"
+        "Time is displayed in the center of the page with large font size (minimum 72px on desktop).",
+        "Format auto-adapts: durations under 1 hour show MM:SS; durations >= 1 hour show HH:MM:SS.",
+        "Leading zeros are always shown (e.g., 05:03, not 5:3).",
+        "The display updates every second."
       ]
     },
     {
       "id": "FR-002",
-      "description": "Create a new TODO item with a required title and optional description",
+      "description": "Allow the user to set a custom countdown duration via manual input.",
       "priority": "high",
       "acceptance_criteria": [
-        "An input form provides fields for title (required) and description (optional)",
-        "Submitting via button click or Enter key sends POST /api/tasks with the task payload",
-        "The new task appears in the list immediately on success",
-        "Empty or whitespace-only titles are rejected with a client-side validation message",
-        "The input field is cleared after successful creation",
-        "Duplicate submissions are prevented (submit button disabled while request is in-flight)"
+        "User can enter hours, minutes, and seconds via separate input fields or a combined time picker.",
+        "Input fields default to 00:05:00 (5 minutes).",
+        "Invalid inputs (negative values, non-numeric) are rejected with inline validation feedback.",
+        "Maximum settable duration is 99:59:59."
       ]
     },
     {
       "id": "FR-003",
-      "description": "Toggle a task's completion status (mark done / mark undone)",
-      "priority": "high",
+      "description": "Provide quick-select preset buttons for common durations.",
+      "priority": "medium",
       "acceptance_criteria": [
-        "Each task row includes a checkbox or toggle for completion status",
-        "Clicking the toggle sends PUT /api/tasks/:id with the flipped completed boolean",
-        "The UI updates optimistically and reverts if the server request fails",
-        "Completed tasks are visually distinct (strikethrough title, muted text color)",
-        "Toggling a completed task back to incomplete restores its normal visual state"
+        "Preset buttons exist for: 1 min, 3 min, 5 min, 10 min, 15 min, 30 min, 60 min.",
+        "Clicking a preset immediately updates the timer display to that duration.",
+        "If a timer is running, clicking a preset resets and sets the new duration (timer stops)."
       ]
     },
     {
       "id": "FR-004",
-      "description": "Delete a TODO item with a confirmation step",
+      "description": "Provide Start, Pause, and Reset buttons to control the countdown.",
       "priority": "high",
       "acceptance_criteria": [
-        "Each task row includes a delete action (trash icon or button)",
-        "Clicking delete triggers a confirmation prompt before proceeding",
-        "On confirmation, DELETE /api/tasks/:id is called and the task is removed from the list",
-        "If the server request fails, the task remains visible and an error is shown",
-        "Canceling the confirmation leaves the task untouched"
+        "Start button begins the countdown from the currently set time.",
+        "Pause button halts the countdown while preserving remaining time; button label changes to 'Resume' while paused.",
+        "Reset button stops the countdown and restores the display to the originally set time.",
+        "Start button is disabled (or changes to Pause) while counting down.",
+        "Pause/Resume button is disabled when the timer is not running.",
+        "Reset button is always enabled when the display differs from the originally set time."
       ]
     },
     {
       "id": "FR-005",
-      "description": "Edit an existing task's title and description inline",
-      "priority": "medium",
+      "description": "Alert the user when the countdown reaches zero via visual change and an optional audio notification.",
+      "priority": "high",
       "acceptance_criteria": [
-        "Clicking a task title or an edit button enters inline edit mode",
-        "In edit mode, title and description become editable text inputs",
-        "Pressing Enter or clicking Save sends PUT /api/tasks/:id with the updated fields",
-        "Pressing Escape or clicking Cancel exits edit mode and restores original values",
-        "Saving an empty title is rejected with validation"
+        "When timer reaches 00:00, the display flashes or changes color (e.g., red background pulse).",
+        "A browser notification API alert is triggered (with user permission).",
+        "An audio beep or alarm sound plays (at least 3 beeps or 3 seconds of sound).",
+        "The page title updates to 'TIME'S UP!' or similar indicator so users on other tabs can see it."
       ]
     },
     {
       "id": "FR-006",
-      "description": "Filter tasks by completion status (All / Active / Completed)",
-      "priority": "medium",
+      "description": "Ensure the countdown remains accurate even when the browser tab is in the background.",
+      "priority": "high",
       "acceptance_criteria": [
-        "Filter tabs or buttons offer three views: All, Active (incomplete), Completed",
-        "The active filter is visually highlighted",
-        "Filtering can be done client-side from already-fetched data for responsiveness",
-        "The filter state persists across operations (newly added tasks appear under the correct filter)"
+        "Timer calculates remaining time based on the difference between current wall-clock time and the target end time (Date-based), rather than relying on setInterval tick count.",
+        "When user returns to a backgrounded tab, the displayed time is correct (within 1 second of actual elapsed time).",
+        "Timer drift over 10 minutes is no more than 1 second."
       ]
     },
     {
       "id": "FR-007",
-      "description": "RESTful API provides task CRUD endpoints backed by SQLite",
-      "priority": "high",
+      "description": "Support responsive design so the timer is usable on both desktop and mobile browsers.",
+      "priority": "medium",
       "acceptance_criteria": [
-        "GET /api/tasks — returns JSON array of all tasks, ordered by created_at DESC",
-        "GET /api/tasks?status=active|completed — returns filtered tasks",
-        "GET /api/tasks/:id — returns a single task object or 404",
-        "POST /api/tasks — accepts { title: string, description?: string }, returns 201 with created task",
-        "PUT /api/tasks/:id — accepts partial update { title?, description?, completed? }, returns updated task or 404",
-        "DELETE /api/tasks/:id — deletes task, returns 204 on success or 404",
-        "All endpoints validate input and return consistent JSON error responses: { error: string } with appropriate HTTP status codes (400, 404, 500)"
-      ]
-    },
-    {
-      "id": "FR-008",
-      "description": "The application handles API and network errors gracefully",
-      "priority": "high",
-      "acceptance_criteria": [
-        "Network errors (timeout, server unreachable) display a user-friendly error message",
-        "Failed mutations show an error toast/notification without crashing the app",
-        "Optimistic UI updates are rolled back if the server request fails",
-        "A retry mechanism or manual retry button is offered for failed fetch operations"
+        "Layout is single-column and stacks vertically on screens narrower than 480px.",
+        "All buttons and inputs have touch-friendly tap targets (minimum 44x44px per WCAG).",
+        "Timer font size scales down appropriately on small screens (minimum 48px).",
+        "No horizontal scrolling required on any screen width >= 320px."
       ]
     }
   ],
   "non_functional_requirements": [
     {
       "type": "performance",
-      "description": "API response time for single-task CRUD operations",
-      "threshold": "p95 < 50ms for local SQLite reads; p95 < 100ms for writes"
-    },
-    {
-      "type": "performance",
-      "description": "Frontend initial page load and first paint",
-      "threshold": "First Contentful Paint < 1.5s; task list visible < 2s on localhost"
-    },
-    {
-      "type": "performance",
-      "description": "UI responsiveness for task list rendering",
-      "threshold": "List of 1,000 tasks renders without visible jank (< 16ms frame budget)"
+      "description": "Page must load and become interactive in under 2 seconds on a 3G connection.",
+      "threshold": "< 2s time-to-interactive"
     },
     {
       "type": "reliability",
-      "description": "Data durability — tasks must survive server restart and page refresh",
-      "threshold": "Zero data loss on clean shutdown; SQLite WAL journal mode enabled for crash resilience"
-    },
-    {
-      "type": "usability",
-      "description": "Responsive layout across device sizes",
-      "threshold": "Usable at viewport widths from 320px (mobile) to 1920px+ (desktop)"
-    },
-    {
-      "type": "usability",
-      "description": "Keyboard accessibility for all core operations",
-      "threshold": "Add, toggle, edit, and delete operations fully operable via keyboard alone (Tab, Enter, Escape, Space)"
-    },
-    {
-      "type": "usability",
-      "description": "Accessibility compliance",
-      "threshold": "WCAG 2.1 Level AA — proper ARIA labels, focus management, color contrast ratio ≥ 4.5:1 for text"
+      "description": "Countdown accuracy must stay within 1 second of true elapsed time for durations up to 1 hour, regardless of tab focus.",
+      "threshold": "<= 1 second drift over 1 hour"
     },
     {
       "type": "security",
-      "description": "Input validation and SQL injection prevention",
-      "threshold": "All API inputs validated; parameterized SQL queries only (no string concatenation); XSS prevention via React's default escaping"
+      "description": "No user data is collected or transmitted; the page must function without any network requests after initial load.",
+      "threshold": "0 external requests after page load"
     },
     {
-      "type": "security",
-      "description": "HTTP security headers on the Express server",
-      "threshold": "Helmet middleware or equivalent configured with appropriate CSP, X-Content-Type-Options, X-Frame-Options headers"
+      "type": "usability",
+      "description": "Interface must be intuitive enough that a first-time user can set and start a timer within 10 seconds without instructions.",
+      "threshold": "< 10s time-to-first-countdown for new users"
     },
     {
       "type": "scalability",
-      "description": "Task volume the application can handle without degradation",
-      "threshold": "10,000 tasks stored in SQLite; list rendering performs acceptably (consider virtualization above 1,000 visible rows)"
+      "description": "This is a single-user client-side application. No server-side scaling concerns apply.",
+      "threshold": "N/A (client-side only)"
     }
   ],
   "constraints": [
-    "Frontend must be built with React (JavaScript or TypeScript)",
-    "Backend must be built with Node.js and Express.js",
-    "Database must be SQLite, using a file-based database (e.g., better-sqlite3 or sqlite3 npm package)",
-    "The frontend and backend communicate exclusively via RESTful JSON API",
-    "The full stack must run locally — no cloud services, no external database server",
-    "No authentication or multi-user support in the initial version (single-user local app)",
-    "Must work in modern browsers: Chrome, Firefox, Safari, Edge (latest 2 versions)",
-    "Setup must be minimal: clone repo, install dependencies, run start command"
+    "Must be implemented as a single self-contained HTML file (HTML + CSS + JS inline) with zero external dependencies, or minimally a small set of files in the same directory.",
+    "No backend server, database, or API calls required.",
+    "Must work in the latest 2 versions of Chrome, Firefox, Safari, and Edge.",
+    "Must not require any browser extensions or plugins.",
+    "Total page weight (HTML + CSS + JS + assets) must not exceed 200 KB."
   ],
   "assumptions": [
-    "The application is single-user; no authentication, authorization, or user accounts",
-    "SQLite database file is stored locally (e.g., ./data/todos.db in the project directory)",
-    "SQLite is configured with WAL journal mode for better concurrent read performance",
-    "Task data model: id (INTEGER PRIMARY KEY AUTOINCREMENT), title (TEXT NOT NULL), description (TEXT, nullable), completed (INTEGER/BOOLEAN DEFAULT 0), created_at (TEXT/DATETIME DEFAULT CURRENT_TIMESTAMP), updated_at (TEXT/DATETIME DEFAULT CURRENT_TIMESTAMP)",
-    "The backend runs on port 3001; the React dev server on port 3000 with a proxy to 3001 for /api routes",
-    "Node.js (v18+) and npm are pre-installed on the user's machine",
-    "Task titles are plain text — no Markdown rendering, rich text, or file attachments",
-    "No real-time sync, WebSockets, or collaboration features are needed",
-    "TypeScript is optional; if used, it applies to both frontend and backend consistently"
+    "The timer is used for short to medium durations (seconds to a few hours), not multi-day countdowns.",
+    "No user accounts, login, or data persistence across sessions is needed.",
+    "A simple, clean visual design is acceptable — no specific brand or theme is required.",
+    "The audio alert will use the Web Audio API or an inline <audio> element with a generated/embedded sound rather than external audio files.",
+    "The countdown stops at 00:00 without automatically counting up (a 'stop at zero' behavior).",
+    "The browser Notification API may be used, but the timer should function fully even if the user denies notification permission."
   ],
   "clarifying_questions": [
     {
-      "question": "Should tasks support additional fields beyond title, description, and completion status — such as due date, priority level (high/medium/low), or tags/categories?",
+      "question": "Should the timer automatically start counting UP after reaching zero (a stopwatch-style overflow), stop at zero, or loop back to the original set time?",
       "answer": null
     },
     {
-      "question": "Should tasks be reorderable via drag-and-drop, or is sorting by creation date (newest first) sufficient?",
+      "question": "Do you want a dark mode / light mode toggle, or is a single default color scheme acceptable?",
       "answer": null
     },
     {
-      "question": "Is there a need for data export/import functionality (e.g., export all tasks as JSON or CSV)?",
+      "question": "Should the timer state persist across page refreshes (using localStorage), or is it acceptable for a refresh to reset to defaults?",
       "answer": null
     },
     {
-      "question": "Should the app support dark mode / theme toggling in the initial release?",
-      "answer": null
-    },
-    {
-      "question": "Is there a preferred UI styling approach — plain CSS, CSS Modules, Tailwind CSS, or a component library like Material UI?",
-      "answer": null
-    },
-    {
-      "question": "Should the app be containerized (Docker) or packaged (Electron) for distribution, or is running via npm scripts sufficient?",
+      "question": "Do you prefer a fullscreen immersive design (like a dedicated timer app) or a standard webpage layout with the timer as the central element?",
       "answer": null
     }
   ]

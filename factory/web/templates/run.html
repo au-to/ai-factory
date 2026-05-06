@@ -1,51 +1,74 @@
 {% extends "base.html" %}
 {% block title %}Run {{ run.run_id }} — AI Factory{% endblock %}
 
-{% block head %}
-<meta http-equiv="refresh" content="10">
-{% endblock %}
-
 {% block content %}
 <div class="flex" style="justify-content:space-between;">
     <div>
         <h1>Run <code>{{ run.run_id }}</code></h1>
-        <span class="badge" style="background:
+        <span id="run-status-badge" class="badge" style="background:
             {% if run.status == 'completed' %}#166534;color:#86efac
             {% elif run.status == 'failed' %}#7f1d1d;color:#fca5a5
             {% elif run.status == 'rejected' %}#7f1d1d;color:#fca5a5
+            {% elif run.status == 'cancelled' %}#7f1d1d;color:#fca5a5
             {% elif run.status == 'running' %}#1e3a5f;color:#93c5fd
             {% else %}#334155;color:#94a3b8{% endif %}
         ">{{ run.status }}</span>
         <span class="muted" style="margin-left:8px;">Created: {{ run.created_at[:19] }}</span>
+        <span id="live-timer" class="muted" style="margin-left:8px;"></span>
     </div>
-    <div>
+    <div class="flex" style="gap:8px;">
+        {% if run.status == 'running' or run.status == 'pending' %}
+        <form method="POST" action="/cancel/{{ run.run_id }}" onsubmit="return confirm('Cancel pipeline {{ run.run_id }}? The current stage will be stopped.')" style="display:inline;">
+            <button type="submit" class="btn btn-sm" style="background:#7f1d1d;color:#fca5a5;">Cancel</button>
+        </form>
+        {% else %}
+        <form method="POST" action="/delete/{{ run.run_id }}" onsubmit="return confirm('Delete run {{ run.run_id }}? This cannot be undone.')" style="display:inline;">
+            <button type="submit" class="btn btn-sm" style="background:#7f1d1d;color:#fca5a5;">Delete</button>
+        </form>
+        {% endif %}
         <a href="/" class="btn btn-sm" style="background:#334155;">Back to Runs</a>
     </div>
 </div>
 
 <!-- Pipeline Visualization -->
-<div class="pipeline">
+<div id="pipeline-viz" class="pipeline">
     {% for stage in stages %}
     <div class="stage
         {% if stage.status == 'in_progress' %}active
         {% elif stage.status == 'completed' %}completed
         {% elif stage.status == 'rejected' or stage.status == 'failed' %}rejected
         {% endif %}
-    ">
+    " data-stage="{{ stage.stage_name }}">
         <div class="icon" style="color:{{ stage.color }}">{{ stage.icon }}</div>
         <div class="label">{{ stage.label }}</div>
         <div class="status-text" style="color:{{ stage.color }}">{{ stage.status }}</div>
     </div>
     {% if not loop.last %}
-    <div class="arrow {% if stage.status == 'completed' %}done{% endif %}">→</div>
+    <div class="arrow {% if stage.status == 'completed' %}done{% endif %}" data-arrow-after="{{ stage.stage_name }}">→</div>
     {% endif %}
     {% endfor %}
 </div>
 
+<!-- Live status bar -->
+<div id="live-bar" class="live-bar" style="display:none;">
+    <span class="live-dot"></span>
+    <span id="live-bar-text"></span>
+</div>
+
+<!-- Log viewer -->
+<div id="log-viewer" class="log-viewer" style="display:none;">
+    <div class="log-header">
+        <span id="log-stage-label">Execution Log</span>
+        <span id="log-status" class="muted"></span>
+    </div>
+    <pre id="log-content"></pre>
+</div>
+
 <!-- Current Stage with Gate -->
+<div id="gate-panels">
 {% for stage in stages %}
 {% if stage.has_gate %}
-<div class="gate-panel">
+<div class="gate-panel" data-gate-stage="{{ stage.stage_name }}">
     <h3>Approval Required: {{ stage.label }}</h3>
     {% if stage.has_artifact %}
     <p class="muted">Artifact is ready for review.</p>
@@ -71,16 +94,17 @@
 </div>
 {% endif %}
 {% endfor %}
+</div>
 
 <!-- Stage Details -->
 <h2>Stage Details</h2>
-<table>
+<table id="stage-table">
     <thead>
         <tr><th>Stage</th><th>Status</th><th>Started</th><th>Completed</th><th>Artifact</th></tr>
     </thead>
     <tbody>
     {% for stage in stages %}
-    <tr>
+    <tr data-stage-row="{{ stage.stage_name }}">
         <td><strong>{{ stage.label }}</strong></td>
         <td>
             <span class="badge" style="background:{{ stage.color }}22;color:{{ stage.color }}">
@@ -129,17 +153,259 @@
         {% endif %}
     </p>
 </div>
+{% endif %}
+
+<!-- Gating History -->
+{% if stages | selectattr('gate_info') | list | length > 0 %}
+<h2>Gate History</h2>
+<table id="gate-table">
+    <thead><tr><th>Stage</th><th>Decision</th><th>Reviewed</th></tr></thead>
+    <tbody>
+    {% for stage in stages %}
+    {% if stage.gate_info %}
+    <tr>
+        <td>{{ stage.label }}</td>
+        <td>
+            <span class="badge" style="background:
+                {% if stage.gate_info.status == 'approved' %}#166534;color:#86efac
+                {% elif stage.gate_info.status == 'rejected' %}#7f1d1d;color:#fca5a5
+                {% else %}#334155;color:#94a3b8{% endif %}
+            ">{{ stage.gate_info.status }}</span>
+        </td>
+        <td class="muted">{{ stage.gate_info.get('reviewed_at', '-')[:19] }}</td>
+    </tr>
+    {% endif %}
+    {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+
 <script>
 const runId = "{{ run.run_id }}";
+const STATUS_COLORS = {
+    "pending": "#9ca3af", "in_progress": "#3b82f6", "awaiting_approval": "#f59e0b",
+    "completed": "#22c55e", "rejected": "#ef4444", "failed": "#ef4444", "cancelled": "#ef4444"
+};
+const STAGE_ICONS = {
+    "pending": "○", "in_progress": "◉", "awaiting_approval": "⏸",
+    "completed": "✓", "rejected": "✗", "failed": "✗"
+};
+const STAGE_LABELS = {
+    "requirements": "需求分析", "design": "产品设计", "development": "开发",
+    "testing": "测试验证", "deployment": "部署运维"
+};
+const STAGE_ORDER = ["requirements", "design", "development", "testing", "deployment"];
+
+let pollTimer = null;
+let logPollTimer = null;
+let stageLogOffset = {};
+let activeStage = null;
+let prevStageStatuses = {};
+
+function getElapsed(startedAt) {
+    if (!startedAt) return "";
+    const elapsed = Math.floor((Date.now() - new Date(startedAt + "Z").getTime()) / 1000);
+    const m = Math.floor(elapsed / 60);
+    const s = elapsed % 60;
+    return m > 0 ? `${m}m ${s}s` : `${s}s`;
+}
+
+async function pollStatus() {
+    try {
+        const r = await fetch('/api/run/' + runId + '/status');
+        if (!r.ok) { stopPolling(); return; }
+        const data = await r.json();
+        updateUI(data);
+        if (data.run.status === 'completed' || data.run.status === 'failed' || data.run.status === 'rejected' || data.run.status === 'cancelled') {
+            stopPolling();
+            setTimeout(() => { window.location.reload(); }, 2500);
+        }
+    } catch(e) {}
+}
+
+async function fetchLog(stageName) {
+    const offset = stageLogOffset[stageName] || 0;
+    try {
+        const r = await fetch('/api/run/' + runId + '/' + stageName + '/log?offset=' + offset);
+        const data = await r.json();
+        if (data.content) {
+            const el = document.getElementById('log-content');
+            el.textContent += data.content;
+            el.scrollTop = el.scrollHeight;
+        }
+        stageLogOffset[stageName] = data.offset;
+        if (data.eof) {
+            document.getElementById('log-status').textContent = '';
+        } else if (data.running) {
+            document.getElementById('log-status').textContent = ' (执行中...)';
+        }
+    } catch(e) {}
+}
+
+function showStageLog(stageName) {
+    const s = STAGE_LABELS[stageName] || stageName;
+    activeStage = stageName;
+    stageLogOffset[stageName] = 0;
+    document.getElementById('log-content').textContent = '';
+    document.getElementById('log-viewer').style.display = 'block';
+    document.getElementById('log-stage-label').textContent = s + ' — 执行日志';
+    document.getElementById('log-status').textContent = ' (加载中...)';
+    fetchLog(stageName);
+}
+
+function updateUI(data) {
+    const run = data.run;
+    const stages = data.stages;
+
+    // Update run status badge
+    const badge = document.getElementById('run-status-badge');
+    badge.textContent = run.status;
+    const st = run.status;
+    if (st === 'completed') { badge.style.background = '#166534'; badge.style.color = '#86efac'; }
+    else if (st === 'failed' || st === 'rejected' || st === 'cancelled') { badge.style.background = '#7f1d1d'; badge.style.color = '#fca5a5'; }
+    else if (st === 'running') { badge.style.background = '#1e3a5f'; badge.style.color = '#93c5fd'; }
+    else { badge.style.background = '#334155'; badge.style.color = '#94a3b8'; }
+
+    // Update pipeline viz + detect transitions
+    let currentActiveStage = null;
+    for (const s of stages) {
+        const el = document.querySelector(`.stage[data-stage="${s.stage_name}"]`);
+        if (!el) continue;
+        el.className = 'stage';
+        if (s.status === 'in_progress') { el.classList.add('active'); currentActiveStage = s; }
+        else if (s.status === 'completed') { el.classList.add('completed'); }
+        else if (s.status === 'rejected' || s.status === 'failed') { el.classList.add('rejected'); }
+        else if (s.status === 'awaiting_approval') { el.classList.add('active'); el.style.borderColor = '#f59e0b'; }
+        el.querySelector('.icon').style.color = s.color;
+        el.querySelector('.status-text').textContent = s.status;
+        el.querySelector('.status-text').style.color = s.color;
+
+        // Detect stage transition to completed → fetch log
+        const prev = prevStageStatuses[s.stage_name];
+        if (prev === 'in_progress' && (s.status === 'completed' || s.status === 'awaiting_approval')) {
+            stageLogOffset[s.stage_name] = 0;
+            if (activeStage === s.stage_name || !activeStage || activeStage === s.stage_name) {
+                document.getElementById('log-content').textContent = '';
+                fetchLog(s.stage_name);
+                document.getElementById('log-viewer').style.display = 'block';
+                document.getElementById('log-stage-label').textContent =
+                    (STAGE_LABELS[s.stage_name] || s.stage_name) + ' — 执行日志';
+                document.getElementById('log-status').textContent = '';
+            }
+        }
+        prevStageStatuses[s.stage_name] = s.status;
+
+        // Update arrows
+        const arrow = document.querySelector(`.arrow[data-arrow-after="${s.stage_name}"]`);
+        if (arrow) {
+            arrow.classList.toggle('done', s.status === 'completed');
+        }
+    }
+
+    // Update stage table
+    for (const s of stages) {
+        const row = document.querySelector(`tr[data-stage-row="${s.stage_name}"]`);
+        if (!row) continue;
+        const cells = row.querySelectorAll('td');
+        const badgeEl = cells[1].querySelector('.badge');
+        badgeEl.textContent = s.status;
+        badgeEl.style.background = s.color + '22';
+        badgeEl.style.color = s.color;
+        cells[2].textContent = s.started_at ? s.started_at.slice(0, 19) : '-';
+        cells[3].textContent = s.completed_at ? s.completed_at.slice(0, 19) : '-';
+        if (s.has_artifact && cells[4].querySelector('.muted')) {
+            cells[4].innerHTML = `<a href="/run/${runId}/${s.stage_name}" class="btn btn-primary btn-sm">View</a>`;
+        }
+        // Add click handler to show stage log
+        if (s.started_at) {
+            cells[0].style.cursor = 'pointer';
+            cells[0].title = '点击查看执行日志';
+            cells[0].onclick = () => showStageLog(s.stage_name);
+        }
+    }
+
+    // Live bar
+    const liveBar = document.getElementById('live-bar');
+    const liveBarText = document.getElementById('live-bar-text');
+    if (currentActiveStage) {
+        liveBar.style.display = 'flex';
+        const started = currentActiveStage.started_at;
+        const label = STAGE_LABELS[currentActiveStage.stage_name] || currentActiveStage.stage_name;
+        liveBarText.textContent = `${label} 正在执行中...` + (started ? ` (已运行 ${getElapsed(started)})` : '');
+
+        // Auto-show log for active stage
+        if (activeStage !== currentActiveStage.stage_name) {
+            activeStage = currentActiveStage.stage_name;
+            stageLogOffset[activeStage] = 0;
+            document.getElementById('log-content').textContent = '';
+            document.getElementById('log-viewer').style.display = 'block';
+            document.getElementById('log-stage-label').textContent = label + ' — 执行日志';
+            document.getElementById('log-status').textContent = ' (执行中...)';
+            fetchLog(activeStage);
+        }
+    } else if (run.status === 'running') {
+        liveBar.style.display = 'flex';
+        liveBarText.textContent = '阶段切换中...';
+    } else {
+        liveBar.style.display = 'none';
+    }
+
+    // Show last completed stage log when pipeline finished
+    if (run.status === 'completed' || run.status === 'failed' || run.status === 'rejected') {
+        if (!document.getElementById('log-viewer').style.display || document.getElementById('log-viewer').style.display === 'none') {
+            // Find last executed stage
+            for (let i = STAGE_ORDER.length - 1; i >= 0; i--) {
+                const s = stages.find(x => x.stage_name === STAGE_ORDER[i]);
+                if (s && s.started_at) {
+                    showStageLog(s.stage_name);
+                    break;
+                }
+            }
+        }
+    }
+
+    // Timer
+    const timerEl = document.getElementById('live-timer');
+    if (run.status === 'running') {
+        timerEl.textContent = '⏱ ' + getElapsed(run.created_at);
+    } else {
+        timerEl.textContent = '';
+    }
+}
+
+function stopPolling() {
+    if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+    if (logPollTimer) { clearInterval(logPollTimer); logPollTimer = null; }
+    document.getElementById('live-bar').style.display = 'none';
+    document.getElementById('live-timer').textContent = '';
+}
+
+// Start polling if run is active
+const initialStatus = "{{ run.status }}";
+if (initialStatus === 'running' || initialStatus === 'pending') {
+    const created = "{{ run.created_at[:19] }}";
+    if (created) {
+        document.getElementById('live-timer').textContent = '⏱ ' + getElapsed(created);
+    }
+    pollTimer = setInterval(pollStatus, 3000);
+    pollStatus();
+}
+
+// Poll log content during active stage
+logPollTimer = setInterval(() => {
+    if (activeStage && pollTimer) {
+        fetchLog(activeStage);
+    }
+}, 2000);
+
+// --- Preview (unchanged) ---
 async function startPreview() {
     const btn = document.querySelector('#preview-actions');
     btn.innerHTML = '<span class="muted">启动中...</span>';
     try {
         const r = await fetch('/preview/' + runId + '/start', {method:'POST'});
         const data = await r.json();
-        if (data.running) {
-            updatePreviewUI(data);
-        }
+        if (data.running) updatePreviewUI(data);
     } catch(e) {
         btn.innerHTML = '<button class="btn btn-success btn-sm" onclick="startPreview()">启动预览</button>';
     }
@@ -169,30 +435,4 @@ function updatePreviewUI(data) {
         <button class="btn btn-danger btn-sm" onclick="stopPreview()">停止预览</button>`;
 }
 </script>
-{% endif %}
-
-<!-- Gating History -->
-{% if stages | selectattr('gate_info') | list | length > 0 %}
-<h2>Gate History</h2>
-<table>
-    <thead><tr><th>Stage</th><th>Decision</th><th>Reviewed</th></tr></thead>
-    <tbody>
-    {% for stage in stages %}
-    {% if stage.gate_info %}
-    <tr>
-        <td>{{ stage.label }}</td>
-        <td>
-            <span class="badge" style="background:
-                {% if stage.gate_info.status == 'approved' %}#166534;color:#86efac
-                {% elif stage.gate_info.status == 'rejected' %}#7f1d1d;color:#fca5a5
-                {% else %}#334155;color:#94a3b8{% endif %}
-            ">{{ stage.gate_info.status }}</span>
-        </td>
-        <td class="muted">{{ stage.gate_info.get('reviewed_at', '-')[:19] }}</td>
-    </tr>
-    {% endif %}
-    {% endfor %}
-    </tbody>
-</table>
-{% endif %}
 {% endblock %}

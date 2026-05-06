@@ -79,13 +79,17 @@ class GateManager:
 
     def wait_for_decision(self, run_id: str, stage_name: str,
                           poll_interval: int = None,
-                          max_wait: int = None) -> GateStatus:
-        """Poll for human decision on a gate. Blocks until decided."""
+                          max_wait: int = None,
+                          cancel_check=None) -> GateStatus:
+        """Poll for human decision on a gate. Blocks until decided or cancelled."""
         poll_interval = poll_interval or self.POLL_INTERVAL
         max_wait = max_wait or self.MAX_WAIT
         elapsed = 0
 
         while elapsed < max_wait:
+            if cancel_check and cancel_check():
+                logger.info(f"Gate for {stage_name}: cancelled")
+                return GateStatus.REJECTED
             decision = self._read_decision(run_id, stage_name)
             if decision and decision != GateStatus.PENDING:
                 return decision

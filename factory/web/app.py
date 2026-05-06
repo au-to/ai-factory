@@ -242,7 +242,11 @@ def create_app(workspace: str = "workspace") -> FastAPI:
         run_id = uuid.uuid4().hex[:8]
         pipeline_path = engine.configs_dir / "pipelines" / "default.yaml"
         extra_context = {"user_prompt": prompt}
-        # Run in background thread so the request returns immediately
+        # Create the run record synchronously so the redirect won't 404
+        from factory.pipeline.config import load_pipeline_config
+        config = load_pipeline_config(pipeline_path)
+        engine.state.create_run(run_id, config.name)
+        # Run pipeline in background thread so the request returns immediately
         import threading
         t = threading.Thread(
             target=engine.run,
@@ -252,6 +256,82 @@ def create_app(workspace: str = "workspace") -> FastAPI:
         )
         t.start()
         return RedirectResponse(url=f"/run/{run_id}", status_code=303)
+
+    @app.get("/api/run/{run_id}/status")
+    async def run_status_api(run_id: str):
+        """JSON endpoint for polling run status."""
+        status = engine.get_status(run_id)
+        if not status:
+            return JSONResponse({"error": "Run not found"}, status_code=404)
+
+        gates_map = {g["stage_name"]: g for g in status["gates"]}
+        enhanced_stages = []
+        stages_map = {s["stage_name"]: s for s in status["stages"]}
+        for stage_name in STAGE_ORDER:
+            s = stages_map.get(stage_name, {"stage_name": stage_name, "status": "pending"})
+            s["label"] = STAGE_LABELS.get(stage_name, stage_name)
+            s["icon"] = STAGE_ICONS.get(s["status"], "?")
+            s["color"] = STATUS_COLORS.get(s["status"], "#9ca3af")
+            s["has_gate"] = s["status"] == "awaiting_approval"
+            s["gate_info"] = gates_map.get(stage_name)
+            s["has_artifact"] = stage_name in {
+                sn for sn in STAGE_ORDER
+                if engine.bus.artifacts_dir(run_id).joinpath(sn).exists()
+            }
+            enhanced_stages.append(s)
+
+        deployment_done = any(
+            s["stage_name"] == "deployment" and s["status"] == "awaiting_approval"
+            for s in status["stages"]
+        ) or status["run"]["status"] == "completed"
+
+        return JSONResponse({
+            "run": status["run"],
+            "stages": enhanced_stages,
+            "preview_running": preview_mgr.is_running(run_id),
+            "deployment_done": deployment_done,
+        })
+
+    @app.get("/api/run/{run_id}/{stage_name}/log")
+    async def stage_log(run_id: str, stage_name: str, offset: int = 0):
+        """Return stage execution log content from the given byte offset."""
+        stage_status = engine.state.get_stage_status(run_id, stage_name)
+        running = stage_status and stage_status["status"] == "in_progress"
+
+        log_path = engine.workspace / "sessions" / run_id / f"{stage_name}-output.txt"
+        if not log_path.exists():
+            return JSONResponse({
+                "content": "", "offset": 0, "eof": not running, "running": running,
+            })
+
+        with open(log_path, "r") as f:
+            if offset > 0:
+                f.seek(offset)
+            content = f.read()
+
+        new_offset = offset + len(content.encode("utf-8"))
+        eof = not running
+
+        return JSONResponse({
+            "content": content,
+            "offset": new_offset,
+            "eof": eof,
+            "running": running,
+        })
+
+    @app.post("/cancel/{run_id}")
+    async def cancel_run(run_id: str):
+        success = engine.cancel_run(run_id)
+        return RedirectResponse(url=f"/run/{run_id}", status_code=303)
+
+    @app.post("/delete/{run_id}")
+    async def delete_run(run_id: str):
+        success = engine.delete_run(run_id)
+        if not success:
+            status = engine.get_status(run_id)
+            if status and status["run"]["status"] == "running":
+                return RedirectResponse(url=f"/run/{run_id}", status_code=303)
+        return RedirectResponse(url="/", status_code=303)
 
     @app.post("/preview/{run_id}/start")
     async def preview_start(run_id: str):

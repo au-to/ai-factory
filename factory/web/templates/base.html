@@ -120,6 +120,35 @@
         }
         .preview-urls a:hover { border-color: #60a5fa; }
 
+        /* Live status bar */
+        .live-bar {
+            display: flex; align-items: center; gap: 8px;
+            padding: 10px 16px; margin: 16px 0; border-radius: 8px;
+            background: #1e3a5f; border: 1px solid #3b82f6;
+        }
+        .live-dot {
+            width: 8px; height: 8px; border-radius: 50%; background: #3b82f6;
+            animation: pulse 1.5s infinite;
+        }
+        .live-bar span:last-child { color: #93c5fd; font-size: 14px; }
+
+        /* Log viewer */
+        .log-viewer {
+            margin: 16px 0; border-radius: 8px; overflow: hidden;
+            border: 1px solid #334155;
+        }
+        .log-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 8px 14px; background: #1e293b; border-bottom: 1px solid #334155;
+            font-size: 13px; font-weight: 600;
+        }
+        .log-viewer pre {
+            margin: 0; padding: 14px; background: #0a0e1a; border-radius: 0;
+            max-height: 400px; overflow-y: auto; font-size: 12px;
+            line-height: 1.6; color: #94a3b8; white-space: pre-wrap; word-break: break-all;
+            font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+        }
+
         @media (max-width: 768px) {
             .grid-2 { grid-template-columns: 1fr; }
             .pipeline { flex-wrap: wrap; justify-content: center; }
